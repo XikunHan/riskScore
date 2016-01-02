@@ -1,0 +1,28 @@
+Package: riskScore
+Type: Package
+Title: high Score
+Version: 1.1
+Date: 2011-08-15
+Author: Thomas Alexander Gerds
+Maintainer: Thomas Alexander Gerds <tagteam@sund.ku.dk>
+Description: Evaluation of risk prediction models 
+Depends: R (>= 1.9.1), prodlim (>= 1.4.9), data.table (>= 1.9.4)
+Imports:
+    foreach (>= 1.4.2),
+    rms (>= 4.2-0),
+    survival (>= 2.37-7)
+Suggests:
+    timereg,
+    randomForestSRC,
+    party,
+    cmprsk (>= 2.2-7),
+    rpart,
+    doMC,
+    parallel,
+    CoxBoost,
+    crrstep,
+    riskRegression (>= 1.0.8),
+    lava,
+    Hmisc (>= 3.14-4)
+License: Foo
+Packaged: Mon Aug 15 15:58:13 2011 ;tagteam
