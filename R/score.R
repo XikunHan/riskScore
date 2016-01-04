@@ -1,14 +1,14 @@
-##' Generic function to score risk predictions
+##' Generic function to Score risk predictions
 ##'
 ##' @title Score risk predictions
-##' @param object 
-##' @param ... 
-##' @return 
+##' @param object see Score.list
+##' @param ... see Score.list
+##' @return see Score.list
 ##' @author Thomas Alexander Gerds
-score <- function(object,...){
-  UseMethod("score",object=object)
+Score <- function(object,...){
+  UseMethod("Score",object=object)
 }
-##' List method to score risk predictions
+##' List method to Score risk predictions
 ##'
 ##' Describe details
 ##' @title Score risk predictions
@@ -46,20 +46,20 @@ score <- function(object,...){
 ##' # score logistic regression models
 ##' lr1 = glm(Y~X1+X2+X7+X9,data=learndat,family=binomial)
 ##' lr2 = glm(Y~X3+X5+X6,data=learndat,family=binomial)
-##' score(list("LR(X1+X2+X7+X9)"=lr1,"LR(X3+X5+X6)"=lr2),formula=Y~1,data=testdat)
+##' Score(list("LR(X1+X2+X7+X9)"=lr1,"LR(X3+X5+X6)"=lr2),formula=Y~1,data=testdat)
 ##' 
 ##' # compute AUC for a list of continuous markers
-##' markers = as.list(bdat[,-1])
-##' score(markers,formula=Y~1,data=bdat,metrics=c("auc"))
+##' markers = as.list(testdat[,1:5])
+##' Score(markers,formula=Y~1,data=testdat,metrics=c("auc"))
 ##'
 ##' # cross-validation
 ##' lr1a = glm(Y~X6,data=learndat,family=binomial)
 ##' lr2a = glm(Y~X7+X8+X9,data=learndat,family=binomial)
-##' score(list("LR1"=lr1a,"LR2"=lr2a),formula=Y~1,data=learndat,splitMethod="bootcv",B=3)
+##' Score(list("LR1"=lr1a,"LR2"=lr2a),formula=Y~1,data=learndat,splitMethod="bootcv",B=3)
 ##'
 ##' # survival outcome
 ##' 
-##' # score Cox regression models
+##' # Score Cox regression models
 ##' library(survival)
 ##' library(rms)
 ##' library(prodlim)
@@ -68,24 +68,29 @@ score <- function(object,...){
 ##' testSurv <- sampleData(40,outcome="survival")
 ##' cox1 = coxph(Surv(time,event)~X1+X2+X7+X9,data=trainSurv)
 ##' cox2 = coxph(Surv(time,event)~X3+X5+X6,data=trainSurv)
-##' score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
+##' Score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
 ##'       formula=Surv(time,event)~1,data=testSurv,test=FALSE,times=c(5,8))
 ##'
+##' # time-dependent AUC for list of markers
+##' survmarkers = as.list(testSurv[,1:5])
+##' Score(survmarkers,
+##'       formula=Surv(time,event)~1,metrics="auc",data=testSurv,test=TRUE,times=c(5,8))
+##' 
 ##' # compare models on test data
-##' score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
+##' Score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
 ##'       formula=Surv(time,event)~1,data=testSurv,test=TRUE,times=c(5,8))
 ##'
 ##' # crossvalidation models in traindata
-##' score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
+##' Score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
 ##'       formula=Surv(time,event)~1,data=trainSurv,test=TRUE,times=c(5,8),splitMethod="bootcv",B=3)
 ##'
 ##' # restrict number of comparisons
-##' score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
+##' Score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
 ##'       formula=Surv(time,event)~1,data=trainSurv,dolist=2,nullModel=FALSE,test=TRUE,times=c(5,8),splitMethod="bootcv",B=3)
 ##' 
 ##' @author Thomas A Gerds \email{tag@@biostat.ku.dk} and Paul Blanche \email{paul.blanche@@univ-ubs.fr}
 ##' @export 
-score.list <- function(object,
+Score.list <- function(object,
                        formula,
                        data,
                        metrics=c("auc","brier"),
@@ -229,7 +234,7 @@ score.list <- function(object,
         }
     }
     else{
-        if (!missing(times)) warning("Function 'score': Response type is not time-to-event: argument 'times' will be ignored.",call.=FALSE)
+        if (!missing(times)) warning("Function 'Score': Response type is not time-to-event: argument 'times' will be ignored.",call.=FALSE)
         times <- NULL
         NT <- 1
     }
@@ -496,7 +501,7 @@ score.list <- function(object,
     output
 }
 
-print.score <- function(x,...){
+print.Score <- function(x,...){
     for (m in x$metrics){
         cat(paste0("\nMetric ",m,":\n"))
         print(x[[m]])

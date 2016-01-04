@@ -1,23 +1,21 @@
 * Binary outcome
-** Training and validation set
+
+** score vs ModelGood
    
 #+BEGIN_SRC R :exports both :results output 
 library(lava)
-Source(riskScore)
+library(riskScore)
 library(ModelGood)
 library(data.table)
 library(rms)
-N <- 300
-M <- 150
-m <- lvm()
 set.seed(18)
-train.d <- simBinary(N)
-test.d <- simBinary(M)
+train.d <- sampleData(200)
+test.d <- sampleData(300)
 f1 <- glm(Y~X1+X2,data=train.d,family=binomial)
 f2 <- lrm(Y~X1+X2,data=train.d)
 f3 <- lrm(Y~X1+X2+X3,data=train.d)
-Source(riskScore);u <- score(list(f1,f2,f3),data=test.d,metrics=c("Brier","auc"))
-system.time(u <- score.list(list(f1,f2,f3),
+u <- Score(list(f1,f2,f3),data=test.d,metrics=c("Brier","auc"))
+system.time(u <- Score.list(list(f1,f2,f3),
                             data=train.d,
                             splitMethod="bootcv"))
 library(ModelGood)
@@ -27,7 +25,7 @@ system.time(v <- Brier(list(f1,f2,f3),
                        verbose=FALSE))
 library(doMC)
 registerDoMC()
-system.time(u <- score(list(f1,f2,f3),data=train.d,splitMethod="none"))
+system.time(u <- Score(list(f1,f2,f3),data=train.d,splitMethod="none"))
 #+END_SRC
 
 * Survival outcome
@@ -58,7 +56,7 @@ Seconds:
 [1] "Attributes: < Length mismatch: comparison on first 1 components >"
 :END:
 
-** score vs timeROC
+** Score vs timeROC
 
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
 library(lava)
@@ -78,10 +76,10 @@ train.d <- SimSurv(N)
 test.d <- SimSurv(M)
 f12 <- coxph(Surv(time,status)~X1+X2,data=train.d)
 ## ptime <- system.time(paul <- with(test.d,timeROC(T=time,delta=status,marker=1-predictSurvProb(f12,times=5,newdata=test.d),cause=1,times=5,iid=TRUE)))
-## metime <- system.time(me <- score(list(f12),data=test.d,formula=Surv(time,status)~1,times=5,metrics=c("AUC")))
+## metime <- system.time(me <- Score(list(f12),data=test.d,formula=Surv(time,status)~1,times=5,metrics=c("AUC")))
 test.d$X2 <- abs(round(test.d$X2,2))
 ptime <- system.time(paul <- with(test.d,timeROC(T=time,delta=status,marker=X2,times=5,cause=1,iid=TRUE)))
-metime <- system.time(me <- score(list(-test.d$X2),data=test.d,formula=Surv(time,status)~1,times=5,metrics=c("AUC"),nullModel=FALSE))
+metime <- system.time(me <- Score(list(-test.d$X2),data=test.d,formula=Surv(time,status)~1,times=5,metrics=c("AUC"),nullModel=FALSE))
 cbind(timeROC.AUC=paul$AUC[[2]],timeROC.seAUC=paul$inference$vect_sd_1[[2]],me$AUC[,data.table(AUC,se.AUC)],timeROC.time=ptime[[1]],metime=metime[[1]])
 ## system.time(getInfluenceCurve.KM(test.d$time,test.d$status))
 #+END_SRC   
@@ -92,7 +90,7 @@ cbind(timeROC.AUC=paul$AUC[[2]],timeROC.seAUC=paul$inference$vect_sd_1[[2]],me$A
 1:   0.5380569    0.02051533 0.5380569 0.02051533     3.388  0.436
 :END:
 
-** score versus timeROC::compare
+** Score versus timeROC::compare
 
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
 library(lava)
@@ -117,7 +115,7 @@ system.time({
                 p12 <- with(test.d,timeROC(T=time,delta=status,marker=-predictSurvProb(f12,times=5,newdata=test.d),times=5,cause=1,iid=TRUE));
                 p2 <- with(test.d,timeROC(T=time,delta=status,marker=X2,times=5,cause=1,iid=TRUE));
                 print(compare(p2,p12))})
-system.time(me <- score(list(f12,test.d$X2),data=test.d,formula=Surv(time,status)~1,times=c(5,10),metrics=c("AUC")))
+system.time(me <- Score(list(f12,test.d$X2),data=test.d,formula=Surv(time,status)~1,times=c(5,10),metrics=c("AUC")))
 me
 #+END_SRC
 
@@ -160,7 +158,7 @@ $AUC[[2]]
 :END:
 
 
-** Paul's Webappendix vs score
+** Paul's Webappendix vs Score
 
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
 library(prodlim)
@@ -177,7 +175,7 @@ d <- SimSurv(4000)
 f12 <- cph(Surv(time,status)~X1+X2,data=train,surv=TRUE)
 p <- 1-predictSurvProb(f12,newdata=d,times=5)
 system.time(a <- BS(timepoints=5,d$time,d$status,p,cause=1,compute.iid=TRUE))
-system.time(b <- score(list(p),formula=Surv(time,status)~1,times=5,data=d,metrics="Brier"))
+system.time(b <- Score(list(p),formula=Surv(time,status)~1,times=5,data=d,metrics="Brier"))
 cbind(Paul.BS=a$BS,Paul.se=a$sd,b$noSplitPerf$Brier)
 #+END_SRC
     
@@ -190,8 +188,8 @@ tmp <- data.frame(m1=c(3,3,2,2,2,1,1),
 tmp$Y <- 1*(tmp$time>4.3)
 a1 <- with(tmp,timeROC(T=time,delta=status,marker=m1,cause=1,times=4.3))
 a2 <- with(tmp,timeROC(T=time,delta=status,marker=m2,cause=1,times=4.3))
-b <- score(list(-tmp$m1,-tmp$m2),data=tmp,formula=Surv(time,status)~1,cause=1,times=4.3,metric="AUC")
-c <- score(list(tmp$m1,tmp$m2),data=tmp,formula=Y~1,metric="AUC")
+b <- Score(list(-tmp$m1,-tmp$m2),data=tmp,formula=Surv(time,status)~1,cause=1,times=4.3,metric="AUC")
+c <- Score(list(tmp$m1,tmp$m2),data=tmp,formula=Y~1,metric="AUC")
 library(ModelGood)
 ROC(form = Y ~ m2,data=tmp, plot="ROC")
 ROC(form = Y ~ m1,data=tmp, plot="ROC")
@@ -199,14 +197,14 @@ Roc(list(lrm(Y ~ m1,data=tmp),lrm(Y ~ m2,data=tmp)),data=tmp, plot="ROC")
 ttt <- seq(1,20,0.05)
 ttt <- c(5,10,15)
 system.time(old <- pec(list(f1,f2,f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="brier",exact=FALSE,start=NULL))
-system.time(survscore <- score(list(f1,f2,f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier"))
-system.time(survscore1 <- score(list(f1,f2,f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier1"))
-system.time(survscore2 <- score(list(f1,f2,f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier2"))
-survscore$noSplitPerf
-survscore1$noSplitPerf
-all.equal(survscore2$noSplitPerf[[1]],survscore1$noSplitPerf[[1]])
-system.time(survscore <- score(list(f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier"))
-system.time(survscore1 <- score(list(f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier1"))
+system.time(survScore <- Score(list(f1,f2,f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier"))
+system.time(survScore1 <- Score(list(f1,f2,f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier1"))
+system.time(survScore2 <- Score(list(f1,f2,f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier2"))
+survScore$noSplitPerf
+survScore1$noSplitPerf
+all.equal(survScore2$noSplitPerf[[1]],survScore1$noSplitPerf[[1]])
+system.time(survScore <- Score(list(f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier"))
+system.time(survScore1 <- Score(list(f12),data=test.d,formula=Surv(time,status)~1,times=ttt,metrics="Brier1"))
 #+END_SRC
 
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
@@ -216,11 +214,11 @@ pbc <- na.omit(pbc)
 a <- cph(Surv(time,status!=0)~age+edema+sex+log(bili),data=pbc,surv=TRUE)
 b <- cph(Surv(time,status!=0)~age+edema+sex+log(bili)+log(protime)+log(albumin),data=pbc,surv=TRUE)
 Source(riskScore)
-## sc <- score(list(a,b),data=pbc,formula=Surv(time,status!=1)~1,times=c(100,500,1000),metrics=c("brier","auc"),splitMethod="bootcv",B=10)
+## sc <- Score(list(a,b),data=pbc,formula=Surv(time,status!=1)~1,times=c(100,500,1000),metrics=c("brier","auc"),splitMethod="bootcv",B=10)
 ## r <- pec(list(a,b),data=pbc,start=NULL,Surv(time,status!=1)~1,times=c(100,500,1000),exact=FALSE)
 u <- with(pbc,timeROC(T=time,delta=status!=0,marker=1-predictSurvProb(a,times=1500,newdata=pbc),cause=1,times=1500,iid=TRUE))
 u2 <- with(pbc,timeROC(T=time,delta=status!=0,marker=1-predictSurvProb(b,times=1500,newdata=pbc),cause=1,times=c(1500)))
-v <- score(list(a,b),data=pbc,formula=Surv(time,status!=0)~1,times=c(1500),metrics=c("AUC"))
+v <- Score(list(a,b),data=pbc,formula=Surv(time,status!=0)~1,times=c(1500),metrics=c("AUC"))
 u
 v$noSplitPerf$AUC[[1]]
 unlist(sc$noSplitPerf$AUC)
@@ -238,16 +236,16 @@ mini <- data.frame(time=c(4,2,3,6,7),status=c(1,0,1,1,1),X2=c(-.1,0.1,-0.03,0.04
 p1 <- predictSurvProb(f1,newdata=mini,times=3.4)
 p2 <- predictSurvProb(f2,newdata=mini,times=3.4)
 Source(riskScore)
-## testmini <- score(list(f2,f1),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
-testmini <- score(list(f1,f2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
+## testmini <- Score(list(f2,f1),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
+testmini <- Score(list(f1,f2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
 testmini$noSplitPerf[[1]]$AUC
 with(mini,timeROC(T=time,delta=status,marker=-p2,cause=1,times=3.4))
 
 u <- with(mini,timeROC(T=time,delta=status,marker=p1,cause=1,times=3.4,iid=TRUE))
-estmini <- score(list(p1),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
+estmini <- Score(list(p1),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
 
 u2 <- with(mini,timeROC(T=time,delta=status,marker=p2,cause=1,times=3.4,iid=TRUE))
-estmini2 <- score(list(-p2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
+estmini2 <- Score(list(-p2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
 #+END_SRC
 
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
@@ -256,7 +254,7 @@ ttt <- 8
 set.seed(8)
 train.d <- SimSurv(8)
 train.d <- train.d[order(train.d$time,-train.d$status),]
-Source(riskScore,silent=TRUE);testauc <- score(list(train.d$X2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
+Source(riskScore,silent=TRUE);testauc <- Score(list(train.d$X2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
 testauc$noSplitPerf
 Source(timeROC,silent=TRUE);troc <- with(train.d,timeROC(T=time,delta=status,marker=X2,cause=1,times=ttt))
 head(cbind(troc$FP[,2],troc$TP[,2]))
@@ -269,7 +267,7 @@ ttt <- seq(1,10)
 set.seed(899)
 train.d <- SimSurv(300)
 train.d <- train.d[order(train.d$time,-train.d$status),]
-Source(riskScore,silent=TRUE);testauc <- score(list(train.d$X2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
+Source(riskScore,silent=TRUE);testauc <- Score(list(train.d$X2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
 Source(timeROC,silent=TRUE);troc <- with(train.d,timeROC(T=time,delta=status,marker=X2,cause=1,times=ttt))
 plot(troc$times,troc$AUC,lwd=7,col=2,xlim=range(troc$times),ylim=c(0.5,1),type="b")
 lines(testauc$times,unlist(testauc$noSplitPerf$numeric$AUC),col="orange",lwd=2)
@@ -282,7 +280,7 @@ set.seed(899)
 train.d <- SimSurv(300)
 train.d <- train.d[order(train.d$time,-train.d$status),]
 f2 <- coxph(Surv(time,status)~X2,data=train.d)
-Source(riskScore,silent=TRUE);testauc <- score(list(f2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
+Source(riskScore,silent=TRUE);testauc <- Score(list(f2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
 troc.auc <- sapply(ttt,function(t){
                        troc <- with(train.d,timeROC(T=time,delta=status,marker=-predictSurvProb(f2,times=t,newdata=train.d),cause=1,times=t))$AUC[[2]]
                    })
@@ -302,8 +300,8 @@ f2a <- cph(Surv(time,status)~X2,data=train.d,surv=TRUE)
 ttt <- c(2,4,8)
 ttt <- c(5,8)
 Source(riskScore,silent=TRUE)
-cv.brier <- score(list(f2a),data=train.d,times=ttt,metrics="Brier",censModel="marginal",splitMethod="bootcv",B=3,formula=Surv(time,status)~1)
-cv.auc <- score(list(f2a),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="bootcv",B=3,formula=Surv(time,status)~1)
-cv.both <- score(list(f2,f2a),data=train.d,times=ttt,metrics=c("auC","briEr"),censModel="marginal",splitMethod="bootcv",B=3,formula=Surv(time,status)~1)
+cv.brier <- Score(list(f2a),data=train.d,times=ttt,metrics="Brier",censModel="marginal",splitMethod="bootcv",B=3,formula=Surv(time,status)~1)
+cv.auc <- Score(list(f2a),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="bootcv",B=3,formula=Surv(time,status)~1)
+cv.both <- Score(list(f2,f2a),data=train.d,times=ttt,metrics=c("auC","briEr"),censModel="marginal",splitMethod="bootcv",B=3,formula=Surv(time,status)~1)
 #+END_SRC
    
