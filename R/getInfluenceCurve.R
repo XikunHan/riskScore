@@ -1,76 +1,39 @@
-## CAUTION : data should be oredered by time
-getInfluenceCurve.AUC.survival <- function(object,
-                                           MatInt0TcidhatMCksurEff){  
-    Matdata <- object
-    t <- Matdata[,times[1]]
-    n <- Matdata[,length(time)]
-    Cases <- Matdata[["Cases"]]
-    Controls1 <- Matdata[["Controls1"]]
-    F01t <- Matdata[,sum(ipcwCases)]
-    St <- Matdata[,sum(ipcwControls1)]
-    # compute frequencies of cases and controls to define 
-    #the size of the matrix  Mathtij1 
+## IMPORTANT : data have to be ordered by time (and for ties by reverse status)
+getInfluenceCurve.AUC.survival <- function(t,n,time,status,risk,times,ipcwControls1,ipcwCases,Cases,Controls1,MatInt0TcidhatMCksurEff){
+    F01t <- sum(ipcwCases)
+    St <- sum(ipcwControls1)
     nbCases <- sum(Cases)
     nbControls1 <- sum(Controls1)
-    mcase <- matrix(Matdata[Cases,pred],nrow=nbCases,ncol=nbControls1)
-    mcontrol <- matrix(Matdata[Controls1,pred],nrow=nbCases,ncol=nbControls1,byrow=TRUE)
-    wcase <- matrix(Matdata[Cases,ipcwCases],nrow=nbCases,ncol=nbControls1)
-    wcontrol <- matrix(Matdata[Controls1,ipcwControls1],nrow=nbCases,ncol=nbControls1,byrow=TRUE)
+    mcase <- matrix(risk[Cases],nrow=nbCases,ncol=nbControls1)
+    mcontrol <- matrix(risk[Controls1],nrow=nbCases,ncol=nbControls1,byrow=TRUE)
+    wcase <- matrix(ipcwCases[Cases],nrow=nbCases,ncol=nbControls1)
+    wcontrol <- matrix(ipcwControls1[Controls1],nrow=nbCases,ncol=nbControls1,byrow=TRUE)
     Mathtij1 <- (1*(mcase>mcontrol)+.5*(mcase==mcontrol))*wcase*wcontrol*n*n
     ht <- (sum(Mathtij1))/(n*n) 
-    vectdit <- Matdata[["Cases"]]*Matdata[["ipcwCases"]]*n
-    ## print(c(mean(vectdit),F01t))
-    # Compute the vecor of all sum_{i=1}^n of {\hat{h}_{tij}}_1 for all j
+    vectdit <- Cases*ipcwCases*n
     colSumsMathtij1 <- rep(0,n) # initialise at 0
-    colSumsMathtij1[Cases] <- rowSums(Mathtij1) # when i is a case,  then we sum the column of  Mathtij1  
-    # Compute the vecor of all sum_{j=1}^n of {\hat{h}_{tij}}_1 for all i  
+    colSumsMathtij1[Cases] <- rowSums(Mathtij1) 
     rowSumsMathtij1 <- rep(0,n) # initialize at 0
-    rowSumsMathtij1[Controls1] <- colSums(Mathtij1)# when  j is a control 1, then we sum the row of  Mathtij1
+    rowSumsMathtij1[Controls1] <- colSums(Mathtij1)
     hathtstar <- (sum(Mathtij1))/(n*n)  
-    # compute the vector of \frac{1_{\tilde{time}_i>=t}}{ \hat{S}_{\tilde{time}}(t)}
     vectTisupt <- n*Controls1/sum(Controls1)
     T1 <- colSums(crossprod(Mathtij1,1+MatInt0TcidhatMCksurEff[Cases,]))/n
     T3 <- colSums(hathtstar*(vectTisupt + (vectdit*(1+MatInt0TcidhatMCksurEff)-F01t)/F01t))
-    ## sumijakfixe <- function(k){
-    ## term1 <- Mathtij1*(1+MatInt0TcidhatMCksurEff[Cases,k]) 
-    ## term2 <- vectdit*(1+MatInt0TcidhatMCksurEff[,k])
-    ## term3 <- (hathtstar)*(vectTisupt + (1/F01t)*(term2-F01t))
-    ## sum(term1)/n - sum(term3) 
-    ## }
-    ## Lessumijakfixe <- numeric(n)
-    ## for (i in 1:n) Lessumijakfixe[i] <- sumijakfixe(i)/(F01t*St)  
-    ## print(round(Lessumijakfixe,4))
-    ## print(round((T1-T3)/(F01t*St),4))
-    Lessumijakfixe <- (T1-T3)/(F01t*St)
-    Lessumikajfixe <- (rowSumsMathtij1 - n*hathtstar)/(F01t*St)
-    Lessumjkaifixe <-  (colSumsMathtij1 - n*hathtstar*(vectTisupt+(1/F01t)*(vectdit-F01t)))/(F01t*St)
-    # We compute the iid representation of the AUC estimator
-    hatIFstar <-  (Lessumijakfixe + Lessumikajfixe +  Lessumjkaifixe)/(n)
-    # }}}
-    # we compute the standard error of the AUC estimator
-    seAUC <- sd(hatIFstar)/sqrt(n)
-    ## list(iidrepresentationAUCstar=hatIFstar,
-    ## seAUC=seAUC)
-    seAUC
+    Term.ijak <- (T1-T3)/(F01t*St)
+    Term.ikaj <- (rowSumsMathtij1 - n*hathtstar)/(F01t*St)
+    Term.jkai <-  (colSumsMathtij1 - n*hathtstar*(vectTisupt+(1/F01t)*(vectdit-F01t)))/(F01t*St)
+    ## the influence function according to Blanche et al. 2013, DOI: 10.1002/sim.5958, Statistics in Medicine, Appendix A
+    (Term.ijak + Term.ikaj + Term.jkai)/(n)
 }
 
-getInfluenceCurve.BS <- function(object,MatInt0TcidhatMCksurEff){ 
-    t <- object[,times[1]]
-    n <- object[,length(time)]
-    object[,hit1:=(Yt==0)*Rtw]
-    object[,hit2:=(Yt==1)*Rtw]
-    BS <- object[,mean(Rtw)]
+getInfluenceCurve.Brier <- function(t,time,Yt,ipcwResiduals,MatInt0TcidhatMCksurEff){
+    browser()
+    hit1=(Yt==0)*ipcwResiduals
+    hit2=(Yt==1)*ipcwResiduals
+    Brier <- mean(ipcwResiduals)
     ## FIXME: make sure that sindex cannot be 0
-    Int0tdMCsurEffARisk <- MatInt0TcidhatMCksurEff[sindex(object[["time"]],t),]
-    ## object[,IC:=object[["hit1"]] + object[["hit2"]] - BS + mean(object[["hit1"]])*Int0tdMCsurEffARisk + colMeans(MatInt0TcidhatMCksurEff*object[["hit2"]])]
-    object[,IC:=hit1+hit2-BS + mean(hit1)*Int0tdMCsurEffARisk + colMeans(MatInt0TcidhatMCksurEff*hit2)]
-    ## print(list(Int0tdMCsurEffARisk=Int0tdMCsurEffARisk,MatInt0TcidhatMCksurEff=MatInt0TcidhatMCksurEff))
-    ## print(object)
-    ## [,data.table(hit1,hit2,IC,BS=mean(Rtw))])
-    #compute mean and sd of iid representation
-    ## sd <- sd(IC)/sqrt(n)
-    ## out <- list(epsilon,sd=sd)
-    ## sd 
+    Int0tdMCsurEffARisk <- MatInt0TcidhatMCksurEff[prodlim::sindex(time,t),]
+    IC.Brier=hit1+hit2-Brier + mean(hit1)*Int0tdMCsurEffARisk + colMeans(MatInt0TcidhatMCksurEff*hit2)
 }
 
 

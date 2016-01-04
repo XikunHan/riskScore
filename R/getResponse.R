@@ -15,7 +15,8 @@ getResponse <- function(formula,event,data,vars){
                 if (is.null(event)||missing(event)) event <- levels(response)[2]
                 response <- as.numeric(response==event)
                 response <- data.table(response)
-                data.table::setnames(response,vars)
+                ## data.table::setnames(response,vars)
+                data.table::setnames(response,"ReSpOnSe")
                 attr(response,"event") <- event
                 attr(response,"model") <- "binary"
             }
