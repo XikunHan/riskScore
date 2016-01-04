@@ -4,10 +4,12 @@ getInfluenceCurve.AUC.survival <- function(t,n,time,status,risk,times,ipcwContro
     St <- sum(ipcwControls1)
     nbCases <- sum(Cases)
     nbControls1 <- sum(Controls1)
-    mcase <- matrix(risk[Cases],nrow=nbCases,ncol=nbControls1)
-    mcontrol <- matrix(risk[Controls1],nrow=nbCases,ncol=nbControls1,byrow=TRUE)
-    wcase <- matrix(ipcwCases[Cases],nrow=nbCases,ncol=nbControls1)
-    wcontrol <- matrix(ipcwControls1[Controls1],nrow=nbCases,ncol=nbControls1,byrow=TRUE)
+    whichCases <- which(Cases)
+    whichControls1 <- which(Controls1)
+    mcase <- matrix(risk[whichCases],nrow=nbCases,ncol=nbControls1)
+    mcontrol <- matrix(risk[whichControls1],nrow=nbCases,ncol=nbControls1,byrow=TRUE)
+    wcase <- matrix(ipcwCases[whichCases],nrow=nbCases,ncol=nbControls1)
+    wcontrol <- matrix(ipcwControls1[whichControls1],nrow=nbCases,ncol=nbControls1,byrow=TRUE)
     Mathtij1 <- (1*(mcase>mcontrol)+.5*(mcase==mcontrol))*wcase*wcontrol*n*n
     ht <- (sum(Mathtij1))/(n*n) 
     vectdit <- Cases*ipcwCases*n
@@ -17,7 +19,7 @@ getInfluenceCurve.AUC.survival <- function(t,n,time,status,risk,times,ipcwContro
     rowSumsMathtij1[Controls1] <- colSums(Mathtij1)
     hathtstar <- (sum(Mathtij1))/(n*n)  
     vectTisupt <- n*Controls1/sum(Controls1)
-    T1 <- colSums(crossprod(Mathtij1,1+MatInt0TcidhatMCksurEff[Cases,]))/n
+    T1 <- colSums(crossprod(Mathtij1,1+MatInt0TcidhatMCksurEff[whichCases,]))/n
     T3 <- colSums(hathtstar*(vectTisupt + (vectdit*(1+MatInt0TcidhatMCksurEff)-F01t)/F01t))
     Term.ijak <- (T1-T3)/(F01t*St)
     Term.ikaj <- (rowSumsMathtij1 - n*hathtstar)/(F01t*St)
@@ -27,7 +29,6 @@ getInfluenceCurve.AUC.survival <- function(t,n,time,status,risk,times,ipcwContro
 }
 
 getInfluenceCurve.Brier <- function(t,time,Yt,ipcwResiduals,MatInt0TcidhatMCksurEff){
-    browser()
     hit1=(Yt==0)*ipcwResiduals
     hit2=(Yt==1)*ipcwResiduals
     Brier <- mean(ipcwResiduals)
