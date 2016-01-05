@@ -46,9 +46,9 @@ getInfluenceCurve.KM <- function(time,status){
     times <- unique(time)
     NU <- length(times)
     lagtime <- c(0,times[-NU])
-    F <- prodlim(Hist(time,status)~1,data=data.frame(time=time,status=status),reverse=FALSE)
-    G <- prodlim(Hist(time,status)~1,data=data.frame(time=time,status=status),reverse=TRUE)
-    Stilde.T <- predictSurvIndividual(F,lag=1)*predictSurvIndividual(G,lag=1)
+    F <- prodlim::prodlim(Hist(time,status)~1,data=data.frame(time=time,status=status),reverse=FALSE)
+    G <- prodlim::prodlim(Hist(time,status)~1,data=data.frame(time=time,status=status),reverse=TRUE)
+    Stilde.T <- prodlim::predictSurvIndividual(F,lag=1)*prodlim::predictSurvIndividual(G,lag=1)
     Stilde.s <- predict(F,times=lagtime)*predict(G,times=lagtime)
     out <- lapply(1:N,function(i){
                       ((1-status[i])*(time[i]<=times))/Stilde.T[i] - cumsum((time[i]>=times)*(G$hazard*G$n.lost)/Stilde.s)

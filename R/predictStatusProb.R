@@ -45,7 +45,7 @@
 #' predictStatusProb(fit,newdata=nd)
 #' 
 #' @author Thomas A. Gerds \email{tag@@biostat.ku.dk}
-#' @seealso \code{\link{predict}},\code{\link{Roc}}
+#' @seealso \code{\link{predict}}
 #' @keywords models
 #' @export predictStatusProb
 predictStatusProb <- function(object,...){
@@ -68,7 +68,7 @@ predictStatusProb.formula <- function(object,newdata,...){
         class(p) <- "predictStatusProb"
         p
     } else{
-        fit <- glm(object,data=newdata,family="binomial")
+        fit <- stats::glm(object,data=newdata,family="binomial")
         predictStatusProb(fit,newdata=newdata,...)
     }
 }

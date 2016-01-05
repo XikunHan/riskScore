@@ -126,13 +126,14 @@ predictSurvProb(rsfmodel,newdata=ndat,times=ttt)
 ## Cox with ridge option
 f1 <- coxph(Surv(time,status)~X1+X2,data=learndat)
 f2 <- coxph(Surv(time,status)~ridge(X1)+ridge(X2),data=learndat)
+\dontrun{
 plot(predictSurvProb(f1,newdata=valdat,times=10),
      pec:::predictSurvProb.coxph(f2,newdata=valdat,times=10),
      xlim=c(0,1),
      ylim=c(0,1),
      xlab="Unpenalized predicted survival chance at 10",
      ylab="Ridge predicted survival chance at 10")
-
+}
 
 }
 \author{

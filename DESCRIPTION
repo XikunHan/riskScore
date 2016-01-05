@@ -5,7 +5,7 @@ Version: 1.0
 Date: 2016-01-04
 Author: Thomas Alexander Gerds and Paul Blanche
 Maintainer: Thomas Alexander Gerds <tagteam@sund.ku.dk>
-Description: Evaluation of risk markers and risk prediction models
+Description: The model implements a toolbox for assessing and comparing probabilistic predictions (risk markers and risk prediction models). Prediction performance is measured by the Brier score and the area under the ROC curve for binary possibly time-dependent outcome. Inverse probability of censoring weighting and pseudo values are used to deal with right censored data. Lists of risk markers and lists of risk models are assessed simultaneously. Cross-validation repeatedly splits the data, trains the risk prediction models on one part of each split and then summarizes and compares the performance across splits.  
 Depends:
     prodlim (>= 1.5.7),
     data.table (>= 1.9.6)

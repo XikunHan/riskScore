@@ -63,7 +63,7 @@ predictStatusProb(fit,newdata=nd)
 Thomas A. Gerds \email{tag@biostat.ku.dk}
 }
 \seealso{
-\code{\link{predict}},\code{\link{Roc}}
+\code{\link{predict}}
 }
 \keyword{models}
 

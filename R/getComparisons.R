@@ -3,9 +3,9 @@
 ## author: Thomas Alexander Gerds
 ## created: Jan  3 2016 (13:30) 
 ## Version: 
-## last-updated: Jan  4 2016 (14:27) 
+## last-updated: Jan  5 2016 (09:48) 
 ##           By: Thomas Alexander Gerds
-##     Update #: 18
+##     Update #: 19
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -15,9 +15,10 @@
 ## 
 ### Code:
 getComparisons <- function(dt,NF,N,alpha,dolist=NF:1){
+    x=model=IC=NULL
     ## FIXME: when dolist is 0:1 and models are 0:2 this does not work 
     if (length(dolist)>0){
-        rbindlist(lapply(dolist,function(g){
+        data.table::rbindlist(lapply(dolist,function(g){
                              theta <- dt[,list(x=x[1]),by=model]
                              delta <- theta[model==g][["x"]]-theta[model<g][["x"]]
                              se.delta <- dt[model<g,list(se=sd(dt[model==g][["IC"]]-IC)/sqrt(N)),by=model][["se"]]

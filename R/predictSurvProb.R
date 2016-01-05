@@ -110,13 +110,14 @@
 ##' ## Cox with ridge option
 ##' f1 <- coxph(Surv(time,status)~X1+X2,data=learndat)
 ##' f2 <- coxph(Surv(time,status)~ridge(X1)+ridge(X2),data=learndat)
+##' \dontrun{
 ##' plot(predictSurvProb(f1,newdata=valdat,times=10),
 ##'      pec:::predictSurvProb.coxph(f2,newdata=valdat,times=10),
 ##'      xlim=c(0,1),
 ##'      ylim=c(0,1),
 ##'      xlab="Unpenalized predicted survival chance at 10",
 ##'      ylab="Ridge predicted survival chance at 10")
-##'
+##'}
 ##' 
 #' @export 
 predictSurvProb <- function(object,newdata,times,...){
@@ -149,6 +150,7 @@ predictSurvProb.matrix <- function(object,newdata,times,...){
 ##' @export 
 predictSurvProb.aalen <- function(object,newdata,times,...){
     ## require(timereg)
+    stop("FIXME")
     time.coef <- data.frame(object$cum)
     ntime <- nrow(time.coef)
     objecttime <- time.coef[,1,drop=TRUE]
@@ -163,13 +165,13 @@ predictSurvProb.aalen <- function(object,newdata,times,...){
              "\n\n")
     time.vars <- cbind(1,newdata[,names(time.coef)[-(1:2)],drop=FALSE])
     nobs <- nrow(newdata)
-    hazard <- .C("survest_cox_aalen",
-                 timehazard=double(ntime*nobs),
-                 as.double(unlist(time.coef[,-1])),
-                 as.double(unlist(time.vars)),
-                 as.integer(ntimevars+1),
-                 as.integer(nobs),
-                 as.integer(ntime),PACKAGE="pec")$timehazard
+    ## hazard <- .C("survest_cox_aalen",
+                 ## timehazard=double(ntime*nobs),
+                 ## as.double(unlist(time.coef[,-1])),
+                 ## as.double(unlist(time.vars)),
+                 ## as.integer(ntimevars+1),
+                 ## as.integer(nobs),
+                 ## as.integer(ntime),PACKAGE="pec")$timehazard
     hazard <- matrix(hazard,ncol=ntime,nrow=nobs,dimnames=list(1:nobs,paste("TP",1:ntime,sep="")))
     surv <- pmin(exp(-hazard),1)
     if (missing(times)) times <- sort(unique(objecttime))
@@ -183,6 +185,7 @@ predictSurvProb.aalen <- function(object,newdata,times,...){
 predictSurvProb.cox.aalen <- function(object,newdata,times,...){
     #  require(timereg)
     ##  The time-constant effects first
+    stop("FIXME")
     const <- c(object$gamma)
     names(const) <- substr(dimnames(object$gamma)[[1]],6,nchar(dimnames(object$gamma)[[1]])-1)
     constant.part <- t(newdata[,names(const)])*const
@@ -194,7 +197,7 @@ predictSurvProb.cox.aalen <- function(object,newdata,times,...){
     ntimevars <- ncol(time.coef)-2
     time.vars <- cbind(1,newdata[,names(time.coef)[-(1:2)],drop=FALSE])
     nobs <- nrow(newdata)
-    time.part <- .C("survest_cox_aalen",timehazard=double(ntime*nobs),as.double(unlist(time.coef[,-1])),as.double(unlist(time.vars)),as.integer(ntimevars+1),as.integer(nobs),as.integer(ntime),PACKAGE="pec")$timehazard
+    ## time.part <- .C("survest_cox_aalen",timehazard=double(ntime*nobs),as.double(unlist(time.coef[,-1])),as.double(unlist(time.vars)),as.integer(ntimevars+1),as.integer(nobs),as.integer(ntime),PACKAGE="pec")$timehazard
     time.part <- matrix(time.part,ncol=ntime,nrow=nobs)
     ## dimnames=list(1:nobs,paste("TP",1:ntime,sep="")))
     surv <- pmin(exp(-time.part*constant.part),1)
@@ -516,3 +519,24 @@ predictProb.randomForest <- function(object,newdata,times,...){
 ## p <- matrix(1,nrow=NROW(newdata),ncol=length(cutpoints))
 ## p
 ## }
+
+# #' @export pecCforest
+## pecCforest <- function(formula,data,...){
+    ## requireNamespace("party")
+    ## out <- list(forest=party::cforest(formula,data,...))
+    ## class(out) <- "pecCforest"
+    ## out$call <- match.call()
+    ## out  
+## }
+
+##' @export 
+predictSurvProb.pecCforest <- function (object, newdata, times, ...) {
+    requireNamespace("party")
+    survObj <- party::treeresponse(object$forest,newdata=newdata)
+    p <- do.call("rbind",lapply(survObj,function(x){
+        predictSurvProb(x,newdata=newdata[1,,drop=FALSE],times=times)
+    }))
+    if (NROW(p) != NROW(newdata) || NCOL(p) != length(times)) 
+        stop(paste("\nPrediction matrix has wrong dimension:\nRequested newdata x times: ",NROW(newdata)," x ",length(times),"\nProvided prediction matrix: ",NROW(p)," x ",NCOL(p),"\n\n",sep=""))
+    p
+}

@@ -1,9 +1,9 @@
 getCensoringWeights <- function(formula,
                                 data,
+                                response,
                                 times,
                                 censModel,
                                 responseType){
-  
     getIPCW.marginal.competing.risk.AUC <- NULL
     getIPCW.marginal.competing.risk.cindex <- NULL
     if((censModel != "KaplanMeier")){
@@ -19,7 +19,7 @@ getCensoringWeights <- function(formula,
         iData <- data
         iData$itime <- response[,"time"]
         iData$istatus <- response[,"status"]
-        weights <- ipcw(formula=iFormula,data=iData,method=censModel,times=times,subjectTimes=Y,subjectTimesLag=1)
+        weights <- ipcw(formula=iFormula,data=iData,method=censModel,times=times,subjectTimes=iData$itime,subjectTimesLag=1)
     }
     else{
         weights <- ipcw(formula=formula,

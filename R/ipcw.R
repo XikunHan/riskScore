@@ -1,7 +1,7 @@
 # {{{ roxy header
 #' Estimation of censoring probabilities
 #' 
-#' This function is used internally by the function \code{pec} to obtain
+#' This function is used internally to obtain
 #' inverse of the probability of censoring weights.
 #' 
 #' Inverse of the probability of censoring weights (IPCW) usually refer to the
@@ -47,7 +47,6 @@
 #' \item{method}{The method for modelling the censoring distribution}
 #' \item{call}{The call}
 #' @author Thomas A. Gerds \email{tag@@biostat.ku.dk}
-#' @seealso \code{\link{pec}}
 #' @keywords survival
 #' @examples
 #' 
@@ -370,40 +369,40 @@ ipcw.cox <- function(formula,data,method,args,times,subjectTimes,subjectTimesLag
 }
 # }}}
 # {{{ reverse Aalen method via the timereg package
-##' @export
-ipcw.aalen <- function(formula,data,method,args,times,subjectTimes,subjectTimesLag,what){
-    if (missing(subjectTimesLag)) subjectTimesLag=1
-    if (missing(what)) what=c("IPCW.times","IPCW.subjectTimes")
-    call <- match.call()
-    EHF <- prodlim::EventHistory.frame(formula,
-                                       data,
-                                       specials=NULL,
-                                       unspecialsDesign=FALSE)
-    wdata <- data.frame(cbind(unclass(EHF$event.history),EHF$design))
-    ## wdata <- as.data.frame(EHF)
-    wdata$status <- 1-wdata$status
-    wform <- update(formula,"Surv(time,status)~.")
-    stopifnot(NROW(na.omit(wdata))>0)
-    fit <- do.call(timereg::aalen,list(formula=formula,data=wdata,n.sim=0))
-    fit$call <- NULL
-    #  weigths at requested times
-    if (match("IPCW.times",what,nomatch=FALSE)){
-        IPCW.times <- predictSurvProb(fit,newdata=wdata,times=times)
-    }  else {
-        IPCW.times <- NULL
-    }
-    if (match("IPCW.subjectTimes",what,nomatch=FALSE)){
-        if (subjectTimesLag==1) 
-            IPCW.subjectTimes <- diag(predictSurvProb(fit,newdata=data,times=pmax(0,subjectTimes-min(diff(unique(subjectTimes)))/2)))
-        else if (subjectTimesLag==0)
-            IPCW.subjectTimes <- diag(predictSurvProb(fit,newdata=data,times=subjectTimes))
-        else stop("SubjectTimesLag must be 0 or 1")
-    }
-    else
-        IPCW.subjectTimes <- NULL
-    out <- list(times=times,IPCW.times=IPCW.times,IPCW.subjectTimes=IPCW.subjectTimes,fit=fit,call=call,method=method)
-    class(out) <- "IPCW"
-    out
-}
-# }}}
+## ##' @export
+## ipcw.aalen <- function(formula,data,method,args,times,subjectTimes,subjectTimesLag,what){
+    ## if (missing(subjectTimesLag)) subjectTimesLag=1
+    ## if (missing(what)) what=c("IPCW.times","IPCW.subjectTimes")
+    ## call <- match.call()
+    ## EHF <- prodlim::EventHistory.frame(formula,
+                                       ## data,
+                                       ## specials=NULL,
+                                       ## unspecialsDesign=FALSE)
+    ## wdata <- data.frame(cbind(unclass(EHF$event.history),EHF$design))
+    ## ## wdata <- as.data.frame(EHF)
+    ## wdata$status <- 1-wdata$status
+    ## wform <- update(formula,"Surv(time,status)~.")
+    ## stopifnot(NROW(na.omit(wdata))>0)
+    ## fit <- do.call(timereg::aalen,list(formula=formula,data=wdata,n.sim=0))
+    ## fit$call <- NULL
+    ## #  weigths at requested times
+    ## if (match("IPCW.times",what,nomatch=FALSE)){
+        ## IPCW.times <- predictSurvProb(fit,newdata=wdata,times=times)
+    ## }  else {
+        ## IPCW.times <- NULL
+    ## }
+    ## if (match("IPCW.subjectTimes",what,nomatch=FALSE)){
+        ## if (subjectTimesLag==1) 
+            ## IPCW.subjectTimes <- diag(predictSurvProb(fit,newdata=data,times=pmax(0,subjectTimes-min(diff(unique(subjectTimes)))/2)))
+        ## else if (subjectTimesLag==0)
+            ## IPCW.subjectTimes <- diag(predictSurvProb(fit,newdata=data,times=subjectTimes))
+        ## else stop("SubjectTimesLag must be 0 or 1")
+    ## }
+    ## else
+        ## IPCW.subjectTimes <- NULL
+    ## out <- list(times=times,IPCW.times=IPCW.times,IPCW.subjectTimes=IPCW.subjectTimes,fit=fit,call=call,method=method)
+    ## class(out) <- "IPCW"
+    ## out
+## }
+## # }}}
 

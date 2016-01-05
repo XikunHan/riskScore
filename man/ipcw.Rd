@@ -54,7 +54,7 @@ produce both.}
 \item{call}{The call}
 }
 \description{
-This function is used internally by the function \code{pec} to obtain
+This function is used internally to obtain
 inverse of the probability of censoring weights.
 }
 \details{
@@ -124,9 +124,6 @@ plot(WKM2$fit,add=FALSE)
 }
 \author{
 Thomas A. Gerds \email{tag@biostat.ku.dk}
-}
-\seealso{
-\code{\link{pec}}
 }
 \keyword{survival}
 
