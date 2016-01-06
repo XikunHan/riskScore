@@ -1,4 +1,4 @@
-getResponse <- function(formula,event,data,vars){
+getResponse <- function(formula,cause,data,vars){
     ## case 1: continuous 
     ## case 2: binary
     ## case 3: ordinal
@@ -12,12 +12,12 @@ getResponse <- function(formula,event,data,vars){
         if (is.factor(response) || length(unique(response))==2){
             if (!is.factor(response)) response <- factor(response)
             if (length(levels(response))==2) {
-                if (is.null(event)||missing(event)) event <- levels(response)[2]
-                response <- as.numeric(response==event)
+                if (is.null(cause)||missing(cause)) cause <- levels(response)[2]
+                response <- as.numeric(response==cause)
                 response <- data.table(response)
                 ## data.table::setnames(response,vars)
                 data.table::setnames(response,"ReSpOnSe")
-                attr(response,"event") <- event
+                attr(response,"event") <- cause
                 attr(response,"model") <- "binary"
             }
             else{
@@ -40,10 +40,6 @@ getResponse <- function(formula,event,data,vars){
             }
             m <- stats::model.frame(formula=formula,data=data,na.action=na.fail)
             response <- unclass(stats::model.response(m))
-            ## if (attr(response,"model")=="competing.risks"){
-            ## if (missing(event)) event <- attr(response,"states")[1]
-            ## attr(response,"cause") <- event
-            ## }
         }
         else{
             stop("Cannot assign response type.")

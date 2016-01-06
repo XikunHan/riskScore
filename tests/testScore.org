@@ -50,36 +50,36 @@ Metric AUC:
 ** Score vs timeROC
 
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
-  library(lava)
-  library(data.table)
-  library(prodlim)
-  library(ModelGood)
-  library(timeROC)
-  library(pec)
-  library(rms)
-  library(riskScore)
-  set.seed(19)
-  N <- 300
-  M <- 1000
-  m <- lvm()
-  train.d <- SimSurv(N)
-  test.d <- SimSurv(M)
-  f12 <- coxph(Surv(time,status)~X1+X2,data=train.d)
-  test.d$X2 <- abs(round(test.d$X2,2))
-  tROCtime <- system.time(tROC <- with(test.d,timeROC(T=time,delta=status,marker=X2,times=5,cause=1,iid=TRUE)))
-  Rscoretime <- system.time(Rscore <- Score(list(test.d$X2),data=test.d,formula=Surv(time,status)~1,times=5,metrics=c("AUC"),nullModel=FALSE,test=TRUE))
-  print(cbind(timeROC.AUC=tROC$AUC[[2]],timeROC.seAUC=tROC$inference$vect_sd_1[[2]],Rscore$AUC$score))
-  cbind(timeROC.time=tROCtime[[1]],Rscore.time=Rscoretime[[1]])
+library(lava)
+library(data.table)
+library(prodlim)
+library(ModelGood)
+library(timeROC)
+library(pec)
+library(rms)
+library(riskScore)
+set.seed(19)
+N <- 300
+M <- 300
+m <- lvm()
+train.d <- SimSurv(N)
+test.d <- SimSurv(M)
+test.d$time <- round(test.d$time,1)
+f12 <- coxph(Surv(time,status)~X1+X2,data=train.d)
+test.d$X2 <- abs(round(test.d$X2,2))
+tROCtime <- system.time(tROC <- with(test.d,timeROC(T=time,delta=status,marker=X2,times=5,cause=1,iid=TRUE)))
+Rscoretime <- system.time(Rscore <- Score(list(test.d$X2),data=test.d,formula=Surv(time,status)~1,times=5,metrics=c("AUC"),nullModel=FALSE,test=TRUE))
+print(cbind(timeROC.AUC=tROC$AUC[[2]],timeROC.seAUC=tROC$inference$vect_sd_1[[2]],Rscore$AUC$score))
+cbind(timeROC.time=tROCtime[[1]],Rscore.time=Rscoretime[[1]])
 #+END_SRC   
 
-#+RESULTS[<2016-01-04 16:39:46> 3bd91e7ea7fa9802b023c8af83743728b7e28475]:
+#+RESULTS[<2016-01-06 15:24:51> cd80a9df8d5aed0839b2456d6757b4fb12737ec8]:
 :RESULTS:
-   timeROC.AUC timeROC.seAUC   model times       AUC     se.AUC lower.AUC upper.AUC
-1:   0.5380569    0.02051533 numeric     5 0.5380569 0.02051533 0.4978476 0.5782662
+   timeROC.AUC timeROC.seAUC   model times       AUC   se.AUC lower.AUC upper.AUC
+1:   0.8333333     0.1944444 numeric     5 0.8333333 0.172809 0.4946339  1.172033
      timeROC.time Rscore.time
-[1,]        1.552       0.284
+[1,]        0.004       0.044
 :END:
-
 
 ** Score versus timeROC::compare
 
@@ -230,6 +230,8 @@ predictSurvProb.numeric <- function(object,newdata,times,...){
         stop(paste("\nPrediction matrix has wrong dimensions:\nRequested newdata x times: ",NROW(newdata)," x ",length(times),"\nProvided prediction matrix: ",NROW(object)," x ",NCOL(object),"\n\n",sep=""))
     object
 }
+train.d <- SimSurv(300)
+test.d <- SimSurv(30)
 f12 <- coxph(Surv(time,status)~X1+X2,data=train.d)
 f1 <- coxph(Surv(time,status)~X1,data=train.d)
 f2 <- coxph(Surv(time,status)~X2,data=train.d)
@@ -238,8 +240,9 @@ mini <- data.frame(time=c(4,2,3,6,7),status=c(1,0,1,1,1),X2=c(-.1,0.1,-0.03,0.04
 p1 <- predictSurvProb(f1,newdata=mini,times=3.4)
 p2 <- predictSurvProb(f2,newdata=mini,times=3.4)
 Source(riskScore)
+testit <- Score(list(f2),data=test.d,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
 ## testmini <- Score(list(f2,f1),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
-testmini <- Score(list(f1,f2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
+testmini <- Score(list(f2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
 testmini$noSplitPerf[[1]]$AUC
 with(mini,timeROC(T=time,delta=status,marker=-p2,cause=1,times=3.4))
 u <- with(mini,timeROC(T=time,delta=status,marker=p1,cause=1,times=3.4,iid=TRUE))
@@ -331,3 +334,15 @@ Seconds:
 [1] "Attributes: < Length mismatch: comparison on first 1 components >"
 :END:
 
+* Competing risks
+
+#+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
+library(riskScore)
+library(timeROC)
+library(rms)
+ex <- data.frame(time=c(1.3,2.5,1,4,2,3,6,7,9),status=c(1,1,2,1,0,2,1,2,1),X1=c(5,7,8,1,1,3,4,3,0),X2=c(2,9,8,1,1,3,4,3,0))
+Source(timeROC,silent=TRUE);with(ex,timeROC(T=time,delta=status,marker=X1,cause=1,times=4.1,iid=TRUE))
+Source(riskScore,silent=TRUE);Score(list(ex$X1),data=ex,formula=Hist(time,status)~1,times=4.1,metrics="aUc",nullModel=FALSE)
+Source(timeROC,silent=TRUE);with(ex,timeROC(T=time,delta=status,marker=X2,cause=1,times=4.1,iid=TRUE))
+Source(riskScore,silent=TRUE);Score(list(ex$X2),data=ex,formula=Hist(time,status)~1,times=4.1,metrics="aUc",nullModel=FALSE)
+#+END_SRC

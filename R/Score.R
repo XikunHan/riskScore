@@ -21,7 +21,7 @@ Score <- function(object,...){
 ##' @param data Data set or table in which the formula can be interpreted.
 ##' @param metrics Character vector specifying which metrics to apply. Implemented are \code{"auc"} and \code{"Brier"}.
 ##' @param plots Character vector specifying which plots to prepare. 
-##' @param event Event of interest. Used for binary outcome \code{Y} to specify that risks are risks of the event \code{Y=event}
+##' @param cause Event of interest. Used for binary outcome \code{Y} to specify that risks are risks of the event \code{Y=event}
 ##' and for competing risks outcome to specify the cause of interest.
 ##' @param times For survival and competing risks outcome: list of prediction horizons. All times which are greater
 ##' than the maximal observed time in the data set are removed.
@@ -101,7 +101,7 @@ Score.list <- function(object,
                        data,
                        metrics=c("auc","brier"),
                        plots=c("roc","calibration"),
-                       event=1,
+                       cause=1,
                        times,
                        landmarks,
                        useEventTimes=FALSE,
@@ -118,7 +118,7 @@ Score.list <- function(object,
                        ...){
 
     id=time=status=id=WTi=b=time=status=model1=model2=p=model=NULL
-    
+
     # -----------------parse arguments and prepare data---------
     # {{{ Response
     if (missing(formula)){stop("Argument formula is missing.")}    
@@ -131,11 +131,11 @@ Score.list <- function(object,
     if (missing(data)){stop("Argument data is missing.")}
     data <- data.table(data)
     responseFormula <- stats::update(formula,~1)
-    if (missing(event)) event <- NULL
+    ## if (missing(event)) event <- 1
     responsevars <- all.vars(responseFormula)
     response <- getResponse(formula=responseFormula,
                             data=data,
-                            event=event,
+                            cause=cause,
                             vars=responsevars)
     response.dim <- NCOL(response)
     responseType <- attr(response,"model")
@@ -263,11 +263,16 @@ Score.list <- function(object,
         if (censType=="rightCensored"){
             if ("outside" %in% censMethod){
                 if ("ipcw" %in% censMethod){
-                    Weights <- getCensoringWeights(formula=formula,data=testdata,times=times,censModel=censModel,responseType=responseType)
+                    Weights <- getCensoringWeights(formula=formula,
+                                                   data=testdata,
+                                                   response=response,
+                                                   times=times,
+                                                   censModel=censModel,
+                                                   responseType=responseType)
                 }
                 else{
                     censMethod <- "jackknife.pseudo.values"
-                    pseudoResponse <- getPseudoValues(formula=formula,data=testdata,responseType=responseType,times=times,event=event)
+                    pseudoResponse <- getPseudoValues(formula=formula,data=testdata,responseType=responseType,times=times,cause=cause)
                 }
             }else{
                  censMethod <- c(censMethod,"inside")
@@ -296,11 +301,12 @@ Score.list <- function(object,
                                    traindata=NULL,
                                    trainseed=NULL,
                                    metrics,
+                                   times,
+                                   cause,
                                    test,
                                    alpha,
                                    dolist,
                                    NF,
-                                   times,
                                    NT){
         N <- NROW(testdata)
         # split into response and predictors
@@ -314,6 +320,7 @@ Score.list <- function(object,
                     if ("ipcw" %in% censMethod){
                         Weights <- getCensoringWeights(formula=formula,
                                                        data=testdata,
+                                                       response=response,
                                                        times=times,
                                                        censModel=censModel,
                                                        responseType=responseType)
@@ -321,7 +328,7 @@ Score.list <- function(object,
                         response[,WTi:=Weights$IPCW.subjectTimes]
                     }else{
                          censMethod <- "jackknife.pseudo.values"
-                         pseudoResponse <- getPseudoValues(formula=formula,data=testdata,responseType=responseType,times=times,event=event)
+                         pseudoResponse <- getPseudoValues(formula=formula,data=testdata,responseType=responseType,times=times,cause=cause)
                      }
                 } else{
                       if (censType=="uncensored"){
@@ -340,43 +347,43 @@ Score.list <- function(object,
         # extract predictions as data.table
         args <- switch(predictHandlerFun,"predictStatusProb"={list(newdata=X)},
                        "predictSurvProb"={list(newdata=X,times=times)},
-                       "predictEventProb"={list(newdata=X,times=times,event=event)},
+                       "predictEventProb"={list(newdata=X,times=times,cause=cause)},
                        stop("Unknown predictHandler."))
         pred <- data.table::rbindlist(lapply(mlevs, function(f){
-                                     if (f!=0 && any(c("integer","factor","numeric","matrix") %in% class(object[[f]]))){
-                                         if (is.null(dim(object[[f]])))
-                                             p <- c(object[[f]][testdata[["id"]]])
-                                         else
-                                             p <- c(object[[f]][testdata[["id"]]])
-                                     }else{
-                                          if (!is.null(traindata)){
-                                              set.seed(trainseed)
-                                              if (f==0)
-                                                  trained.model <- trainModel(model=nullobject[[1]],data=traindata)
-                                              else
-                                                  trained.model <- trainModel(model=object[[f]],data=traindata)
-                                              if ("try-error" %in% class(trained.model))
-                                                  stop(paste0("Failed to fit model ",f,ifelse(try(b>0,silent=TRUE),paste0(" in cross-validation step ",b,"."))))
-                                          }
-                                          else{
-                                              if (f==0)
-                                                  trained.model <- nullobject[[1]]
-                                              else
-                                                  trained.model <- object[[f]]
-                                          }
-                                          p <- c(do.call(predictHandlerFun, c(list(object=trained.model),args)))
-                                          if (f==0 && responseType!="binary") {## glm predicts the same value for all subjects
-                                              p <- rep(p,rep(N,NT))
-                                          }
-                                          ## predict risks not survival
-                                          if (predictHandlerFun=="predictSurvProb") p <- 1-p
-                                      }
-                                     if (!is.null(times)){
-                                         data.table(id=testdata[["id"]],model=f,risk=p,times=rep(times,rep(N,NT)))
-                                     } else {
-                                           data.table(id=testdata[["id"]],model=f,risk=p)
-                                       }
-                                 }))
+                                                 if (f!=0 && any(c("integer","factor","numeric","matrix") %in% class(object[[f]]))){
+                                                     if (is.null(dim(object[[f]])))
+                                                         p <- c(object[[f]][testdata[["id"]]])
+                                                     else
+                                                         p <- c(object[[f]][testdata[["id"]]])
+                                                 }else{
+                                                      if (!is.null(traindata)){
+                                                          set.seed(trainseed)
+                                                          if (f==0)
+                                                              trained.model <- trainModel(model=nullobject[[1]],data=traindata)
+                                                          else
+                                                              trained.model <- trainModel(model=object[[f]],data=traindata)
+                                                          if ("try-error" %in% class(trained.model))
+                                                              stop(paste0("Failed to fit model ",f,ifelse(try(b>0,silent=TRUE),paste0(" in cross-validation step ",b,"."))))
+                                                      }
+                                                      else{
+                                                          if (f==0)
+                                                              trained.model <- nullobject[[1]]
+                                                          else
+                                                              trained.model <- object[[f]]
+                                                      }
+                                                      p <- c(do.call(predictHandlerFun, c(list(object=trained.model),args)))
+                                                      if (f==0 && responseType!="binary") {## glm predicts the same value for all subjects
+                                                          p <- rep(p,rep(N,NT))
+                                                      }
+                                                      ## predict risks not survival
+                                                      if (predictHandlerFun=="predictSurvProb") p <- 1-p
+                                                  }
+                                                 if (!is.null(times)){
+                                                     data.table(id=testdata[["id"]],model=f,risk=p,times=rep(times,rep(N,NT)))
+                                                 } else {
+                                                       data.table(id=testdata[["id"]],model=f,risk=p)
+                                                   }
+                                             }))
         if (!is.null(Weights)){
             if (Weights$method=="marginal"){
                 Wt <- data.table(times=times,Wt=Weights$IPCW.times)
@@ -394,9 +401,11 @@ Score.list <- function(object,
                       alpha=alpha,
                       test=test,
                       dolist=dolist)
+        if (responseType=="competing.risks")
+            input <- c(input,list(cause=cause))
         ## browser(skipCalls=1)
         if (test==TRUE && censType=="rightCensored")
-            input <- c(input,list(MatInt0TcidhatMCksurEff=response[,getInfluenceCurve.KM(time=time,status=status)]))
+            input <- c(input,list(MC=response[,getInfluenceCurve.KM(time=time,status=status)]))
         out <- lapply(metrics,function(m){
                           x <- do.call(paste(m,responseType,sep="."),input)
                           if (!is.null(x$score))
@@ -421,11 +430,12 @@ Score.list <- function(object,
                                   nullobject=nullobject,
                                   testdata=data,
                                   metrics=metrics,
+                                  times=times,
+                                  cause=cause,
                                   test=test,
                                   alpha=alpha,
                                   dolist=dolist,
                                   NF=NF,
-                                  times=times,
                                   NT=NT)
     # }}}
     # -----------------crossvalidation performance---------------------
@@ -444,11 +454,12 @@ Score.list <- function(object,
                                                                   traindata=traindata,
                                                                   trainseed=trainseeds[b],
                                                                   metrics=metrics,
+                                                                  times=times,
+                                                                  cause=cause,
                                                                   test=test,
                                                                   alpha=alpha,
                                                                   dolist=dolist,
                                                                   NF=NF,
-                                                                  times=times,
                                                                   NT=NT)
                                          cb
                                      }
@@ -560,7 +571,7 @@ AUC.binary <- function(DT,breaks=NULL,test,alpha,N,NT,NF,dolist){
     }
     AUC <- score
 }
-Brier.survival <- function(DT,MatInt0TcidhatMCksurEff,test,alpha,N,NT,NF,dolist){
+Brier.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
     Yt=time=times=Residuals=risk=ipcwResiduals=WTi=Wt=status=setorder=model=IC.Brier=data.table=sd=lower.Brier=qnorm=se.Brier=upper.Brier=NULL
     ## compute 0/1 outcome:
     DT[,Yt:=1*(time<=times)]
@@ -574,7 +585,7 @@ Brier.survival <- function(DT,MatInt0TcidhatMCksurEff,test,alpha,N,NT,NF,dolist)
     ## DT[,c("Yt","time","WTi","Wt","status","Residuals"):=NULL]
     if (test==TRUE){
         data.table::setorder(DT,model,times,time,-status)
-        DT[,IC.Brier:=getInfluenceCurve.Brier(t=times[1],time=time,Yt=Yt,ipcwResiduals=ipcwResiduals,MatInt0TcidhatMCksurEff=MatInt0TcidhatMCksurEff),by=list(model,times)]
+        DT[,IC.Brier:=getInfluenceCurve.Brier(t=times[1],time=time,Yt=Yt,ipcwResiduals=ipcwResiduals,MC=MC),by=list(model,times)]
         score <- DT[,data.table(Brier=sum(ipcwResiduals)/N,se.Brier=sd(IC.Brier)/sqrt(N)),by=list(model,times)]
         score[,lower.Brier:=Brier-qnorm(1-alpha/2)*se.Brier]
         score[,upper.Brier:=Brier + qnorm(1-alpha/2)*se.Brier]
@@ -594,9 +605,55 @@ AireTrap <- function(FP,TP,N){
     sum((FP-c(0,FP[-N]))*((c(0,TP[-N])+TP)/2))
 }
 
-AUC.survival <- function(DT,MatInt0TcidhatMCksurEff,test,alpha,N,NT,NF,dolist){
-    model=times=risk=Cases=time=status=Controls1=Controls2=TPt=FPt=WTi=Wt=ipcwControls1=ipcwControls2=ipcwCases=IC.AUC=lower.AUC=se.AUC=upper.AUC=NULL
+AUC.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
+    model=times=risk=Cases=time=status=Controls1=TPt=FPt=WTi=Wt=ipcwControls1=ipcwCases=IC.AUC=lower.AUC=se.AUC=upper.AUC=NULL
     cause <- 1
+    ## assign Weights before ordering
+    DT[,ipcwControls1:=1/(Wt*N)]
+    ## DT[,ipcwControls2:=1/(WTi*N)]
+    DT[,ipcwCases:=1/(WTi*N)]
+    ## DT[,ipcwControls2:=1/(WTi*N)]
+    ## order data
+    data.table::setorder(DT,model,times,-risk)
+    ## identify cases and controls
+    DT[,Cases:=(time <= times &  status==cause)]
+    DT[,Controls1:=(time > times)] 
+    ## DT[,Controls2:=(time < times &  status!=cause & status !=0)]
+    ## prepare Weights
+    DT[Cases==0,ipcwCases:=0]
+    DT[Controls1==0,ipcwControls1:=0]
+    ## DT[Controls2==0,ipcwControls2:=0]
+    ## compute denominator
+    ## ROC <- DT[,list(TPt=c(0,cumsum(ipcwCases)),FPt=c(0,cumsum(ipcwControls1)+cumsum(ipcwControls2))),by=list(model,times)]
+    DT[,TPt:=cumsum(ipcwCases)/sum(ipcwCases),by=list(model,times)]
+    ## DT[,FPt:=(cumsum(ipcwControls1)+cumsum(ipcwControls2))/(sum(ipcwControls2)+sum(ipcwControls1)),by=list(model,times)]
+    DT[,FPt:=(cumsum(ipcwControls1))/(sum(ipcwControls1)),by=list(model,times)]
+    nodups <- DT[,c(!duplicated(risk)[-1],TRUE),by=list(model,times)]$V1
+    ## auc <- DT[nodups,list(AUC=sum((FPt-c(0,FPt[-N]))*((c(0,TPt[-N])+TPt)/2))),by=list(model,times)]
+    score <- DT[nodups,list(AUC=AireTrap(FPt,TPt)),by=list(model,times)]
+    data.table::setkey(score,model,times)
+    if (test==TRUE){
+        ## compute influence function
+        data.table::setorder(DT,model,times,time,-status)
+        DT[,IC.AUC:=getInfluenceCurve.AUC.survival(t=times[1],n=N,time=time,risk=risk,Cases=Cases,Controls1=Controls1,ipcwControls1=ipcwControls1,ipcwCases=ipcwCases,MC=MC), by=list(model,times)]
+        se.score <- DT[,list(se.AUC=sd(IC.AUC)/sqrt(N)),by=list(model,times)]
+        data.table::setkey(se.score,model,times)
+        score <- score[se.score]
+        score[,lower.AUC:=AUC-qnorm(1-alpha/2)*se.AUC]
+        score[,upper.AUC:=AUC+qnorm(1-alpha/2)*se.AUC]
+        data.table::setkey(DT,model,times)
+        DT <- DT[score]
+        test.AUC <- DT[,getComparisons(data.table(x=AUC,IC=IC.AUC,model=model),NF=NF,N=N,alpha=alpha,dolist=dolist),by=list(times)]
+        AUC <- list(score=score,test=test.AUC)
+    }else{
+         AUC <- score
+     }
+    AUC
+}
+
+
+AUC.competing.risks <- function(DT,MC,test,alpha,N,NT,NF,dolist,cause){
+    model=times=risk=Cases=time=status=event=Controls1=Controls2=TPt=FPt=WTi=Wt=ipcwControls1=ipcwControls2=ipcwCases=IC.AUC=lower.AUC=se.AUC=upper.AUC=NULL
     ## assign Weights before ordering
     DT[,ipcwControls1:=1/(Wt*N)]
     DT[,ipcwControls2:=1/(WTi*N)]
@@ -605,9 +662,9 @@ AUC.survival <- function(DT,MatInt0TcidhatMCksurEff,test,alpha,N,NT,NF,dolist){
     ## order data
     data.table::setorder(DT,model,times,-risk)
     ## identify cases and controls
-    DT[,Cases:=(time < times &  status==cause)]
+    DT[,Cases:=(time <=times &  event==cause)]
     DT[,Controls1:=(time > times)] 
-    DT[,Controls2:=(time < times &  status!=cause & status !=0)]
+    DT[,Controls2:=(time <=times &  event!=cause & status !=0)]
     ## prepare Weights
     DT[Cases==0,ipcwCases:=0]
     DT[Controls1==0,ipcwControls1:=0]
@@ -623,8 +680,7 @@ AUC.survival <- function(DT,MatInt0TcidhatMCksurEff,test,alpha,N,NT,NF,dolist){
     if (test==TRUE){
         ## compute influence function
         data.table::setorder(DT,model,times,time,-status)
-        DT[,IC.AUC:=getInfluenceCurve.AUC.survival(t=times[1],n=N,time,status,risk,times,ipcwControls1,ipcwCases,Cases,Controls1,
-                MatInt0TcidhatMCksurEff=MatInt0TcidhatMCksurEff), by=list(model,times)]
+        DT[,IC.AUC:=getInfluenceCurve.AUC.competing.risks(t=times[1],n=N,time=time,risk=risk,ipcwControls1=ipcwControls1,ipcwControls2=ipcwControls2,ipcwCases=ipcwCases,Cases=Cases,Controls1=Controls1,Controls2=Controls2,MC=MC), by=list(model,times)]
         se.score <- DT[,list(se.AUC=sd(IC.AUC)/sqrt(N)),by=list(model,times)]
         data.table::setkey(se.score,model,times)
         score <- score[se.score]
