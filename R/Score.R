@@ -1,6 +1,6 @@
-#' @importFrom foreach %dopar% foreach
+#' @importFrom foreach "%dopar%" foreach
 #' @importFrom survival Surv
-#' @importFrom prodlim Hist jackknife prodlim
+#' @importFrom prodlim Hist jackknife prodlim sindex
 #' @importFrom data.table data.table :=
 #' @importFrom grDevices col2rgb gray
 #' @importFrom graphics abline axis box legend lines mtext par plot points segments text title
@@ -93,6 +93,22 @@ Score <- function(object,...){
 ##' Score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
 ##'       formula=Surv(time,event)~1,data=trainSurv,dolist=2,
 ##' nullModel=FALSE,test=TRUE,times=c(5,8),splitMethod="bootcv",B=3)
+##'
+##' # competing risks outcome
+##' set.seed(18)
+##' trainCR <- sampleData(40,outcome="competing.risks")
+##' testCR <- sampleData(40,outcome="competing.risks")
+##' library(riskRegression)
+##' library(cmprsk)
+##' # Cause-specific Cox regression
+##' csc1 = CSC(Hist(time,event)~X1+X2+X7+X9,data=trainCR)
+##' csc2 = CSC(Hist(time,event)~X3+X5+X6,data=trainCR)
+##' # Fine-Gray regression
+##' fgr1 = FGR(Hist(time,event)~X1+X2+X7+X9,data=trainCR,cause=1)
+##' fgr2 = FGR(Hist(time,event)~X3+X5+X6,data=trainCR,cause=1)
+##' Score(list("CSC(X1+X2+X7+X9)"=csc1,"CSC(X3+X5+X6)"=csc2,
+##'            "FGR(X1+X2+X7+X9)"=fgr1,"FGR(X3+X5+X6)"=fgr2),
+##'       formula=Hist(time,event)~1,data=testCR,test=TRUE,times=c(5,8))
 ##' 
 ##' @author Thomas A Gerds \email{tag@@biostat.ku.dk} and Paul Blanche \email{paul.blanche@@univ-ubs.fr}
 ##' @export 
@@ -225,16 +241,17 @@ Score.list <- function(object,
             if (missing(times)){
                 if (useEventTimes==TRUE)
                     times <- unique(c(start,eventTimes))
-                else
-                    times <- seq(start,maxtime,(maxtime - start)/100)
-            }
-            else{
-                if (useEventTimes==TRUE) 
-                    times <- sort(c(start,unique(times),eventTimes))
-                else
-                    ## times <- sort(unique(c(start,times)))
-                    times <- sort(unique(times))
-            }
+                else{
+                    ## times <- seq(start,maxtime,(maxtime - start)/100)
+                    times <- median(eventTimes)
+                }
+            } else{
+                  if (useEventTimes==TRUE) 
+                      times <- sort(c(start,unique(times),eventTimes))
+                  else
+                      ## times <- sort(unique(c(start,times)))
+                      times <- sort(unique(times))
+              }
             stopifnot(sum(times<=maxtime)>0)
             times <- times[times<=maxtime]
             NT <-  length(times)
@@ -334,6 +351,7 @@ Score.list <- function(object,
                       if (censType=="uncensored"){
                           Weights <- list(IPCW.times=rep(1,NT),
                                           IPCW.subjectTimes=matrix(1,ncol=NT,nrow=N))
+                          Weights$method <- "marginal"
                           response[,WTi:=1]
                       } else{
                             stop("Cannot handle this type of censoring.")
@@ -404,8 +422,14 @@ Score.list <- function(object,
         if (responseType=="competing.risks")
             input <- c(input,list(cause=cause))
         ## browser(skipCalls=1)
-        if (test==TRUE && censType=="rightCensored")
-            input <- c(input,list(MC=response[,getInfluenceCurve.KM(time=time,status=status)]))
+        if (responseType %in% c("survival","competing.risks") &&test==TRUE){
+            if (censType=="rightCensored"){
+                input <- c(input,list(MC=response[,getInfluenceCurve.KM(time=time,status=status)]))
+            }
+            else{
+                input <- c(input,list(MC=matrix(0,ncol=length(response$time),nrow=length(unique(response$time)))))
+            }
+        }
         out <- lapply(metrics,function(m){
                           x <- do.call(paste(m,responseType,sep="."),input)
                           if (!is.null(x$score))
@@ -444,7 +468,7 @@ Score.list <- function(object,
     if (splitMethod$name=="BootCv"){
         if (missing(trainseeds)||is.null(trainseeds))
             trainseeds <- sample(1:1000000,size=B,replace=FALSE)
-        crossval <- foreach (b=1:B) %dopar% {
+        crossval <- foreach (b=1:B) %dopar%{
                                          traindata=data[splitMethod$index[,b],,drop=FALSE]
                                          ## subset.data.table preserves order
                                          testdata <- subset(data,(match(1:N,unique(splitMethod$index[,b]),nomatch=0)==0),drop=FALSE)
@@ -490,10 +514,12 @@ Score.list <- function(object,
                                               data.table::setnames(bootcv,c("model",m))
                                           }
                                         out <- list(bootcv)
-                                        names(out) <- paste0("Cross-validation (average of ",B," steps)")
+                                        names(out) <- "score"
+                                        ## names(out) <- paste0("Cross-validation (average of ",B," steps)")
                                         if (!is.null(multisplit.test)){
                                             ms <- list(multisplit.test)
-                                            names(ms) <- paste0("Multisplit test (",B," splits)")
+                                            names(ms) <- "tests"
+                                            ## names(ms) <- paste0("Multisplit test (",B," splits)")
                                             out <- c(out,ms)
                                         }
                                         out
@@ -518,16 +544,36 @@ Score.list <- function(object,
                             censType=censType,
                             censoringHandling=censMethod,
                             splitMethod=splitMethod,metrics=metrics))
+    for (m in metrics){
+        output[[m]]$metric <- m
+        class(output[[m]]) <- "score"
+    }
     class(output) <- "Score"
     output
 }
 
 #' @export
 print.Score <- function(x,...){
+    B <- x$splitMethod$B
     for (m in x$metrics){
         cat(paste0("\nMetric ",m,":\n"))
-        print(x[[m]])
+        print(x[[m]],B)
     }
+}
+#' @export
+print.score <- function(x,B=0,...){
+    if (B>0){
+        print(x$score)
+        cat(paste0("\nCross-validation (average of ",B," steps)\n\n"))
+        if (!is.null(x$tests)){
+            print(x$tests)
+            cat(paste0("\nMultisplit test (",B," splits)\n\n"))
+        }
+    }else{
+         print(x$score)
+         if (!is.null(x$tests))
+             print(x$tests)
+     }
 }
 
 Brier.binary <- function(DT,test=TRUE,alpha,N,NT,NF,dolist){
@@ -582,6 +628,34 @@ Brier.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
     DT[Yt==0,ipcwResiduals:=Residuals/Wt]
     ## deal with censored observations before t
     DT[Yt==1 & status==0,ipcwResiduals:=0]
+    ## DT[,c("Yt","time","WTi","Wt","status","Residuals"):=NULL]
+    if (test==TRUE){
+        data.table::setorder(DT,model,times,time,-status)
+        DT[,IC.Brier:=getInfluenceCurve.Brier(t=times[1],time=time,Yt=Yt,ipcwResiduals=ipcwResiduals,MC=MC),by=list(model,times)]
+        score <- DT[,data.table(Brier=sum(ipcwResiduals)/N,se.Brier=sd(IC.Brier)/sqrt(N)),by=list(model,times)]
+        score[,lower.Brier:=Brier-qnorm(1-alpha/2)*se.Brier]
+        score[,upper.Brier:=Brier + qnorm(1-alpha/2)*se.Brier]
+        data.table::setkey(score,model,times)
+        data.table::setkey(DT,model,times)
+        DT <- DT[score]
+        test.Brier <- DT[,getComparisons(data.table(x=Brier,IC=IC.Brier,model=model),NF=NF,N=N,alpha=alpha,dolist=dolist),by=list(times)]
+        Brier <- list(score=score,test=test.Brier)
+    }else{
+         Brier <- DT[,data.table(Brier=sum(ipcwResiduals)/N),by=list(model,times)]
+     }
+    Brier
+}
+Brier.competing.risks <- function(DT,MC,test,alpha,N,NT,NF,dolist,cause){
+    Yt=time=times=event=Residuals=risk=ipcwResiduals=WTi=Wt=status=setorder=model=IC.Brier=data.table=sd=lower.Brier=qnorm=se.Brier=upper.Brier=NULL
+    ## compute 0/1 outcome:
+    DT[,Yt:=1*(time<=times & event==cause)]
+    ## compute residuals
+    DT[,Residuals:=(Yt-risk)^2]
+    ## apply weights 
+    DT[,ipcwResiduals:=Residuals/WTi]
+    DT[time>times,ipcwResiduals:=Residuals/Wt]
+    ## deal with censored observations before t
+    DT[time<=times & status==0,ipcwResiduals:=0]
     ## DT[,c("Yt","time","WTi","Wt","status","Residuals"):=NULL]
     if (test==TRUE){
         data.table::setorder(DT,model,times,time,-status)

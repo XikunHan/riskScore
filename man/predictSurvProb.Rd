@@ -26,7 +26,6 @@
 \method{predictSurvProb}{coxph}(object,newdata,times,...)
 \method{predictSurvProb}{matrix}(object,newdata,times,...)
 \method{predictSurvProb}{selectCox}(object,newdata,times,...)
-\method{predictSurvProb}{pecCforest}(object,newdata,times,...)
 \method{predictSurvProb}{prodlim}(object,newdata,times,...)
 \method{predictSurvProb}{psm}(object,newdata,times,...)
 \method{predictSurvProb}{survfit}(object,newdata,times,...)

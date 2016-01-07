@@ -46,7 +46,6 @@ Metric AUC:
 :END:
 
 * Survival outcome
-
 ** Score vs timeROC
 
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
@@ -205,107 +204,61 @@ $test
 1:     5 matrix Kaplan-Meier -0.07083145 -0.07792863 -0.06373426 3.334462e-85
 :END:
 
-*** Temp
+*** pbc data
     
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
-library(survival)
-library(riskScore)
-library(pec)
-library(rms)
-data(pbc)
-pbc <- na.omit(pbc)
-a <- cph(Surv(time,status!=0)~age+edema+sex+log(bili),data=pbc,surv=TRUE)
-b <- cph(Surv(time,status!=0)~age+edema+sex+log(bili)+log(protime)+log(albumin),data=pbc,surv=TRUE)
-set.seed(17)
-sc <- Score(list(a,b),data=pbc,formula=Surv(time,status!=1)~1,times=c(1000),metrics=c("brier","auc"),nullModel=FALSE,splitMethod="bootcv",B=2)
-r <- pec(list(a,b),data=pbc,start=NULL,Surv(time,status!=1)~1,times=c(100,500,1000),exact=FALSE)
-u <- with(pbc,timeROC(T=time,delta=status!=0,marker=1-predictSurvProb(a,times=1500,newdata=pbc),cause=1,times=1500,iid=TRUE))
-u2 <- with(pbc,timeROC(T=time,delta=status!=0,marker=1-predictSurvProb(b,times=1500,newdata=pbc),cause=1,times=c(1500)))
-v <- Score(list(a,b),data=pbc,formula=Surv(time,status!=0)~1,times=c(500,1500),metrics=c("AUC"))
-u
-v
-predictSurvProb.numeric <- function(object,newdata,times,...){
-    if (NROW(object) != NROW(newdata))
-        ## || NCOL(object) != length(times))
-        stop(paste("\nPrediction matrix has wrong dimensions:\nRequested newdata x times: ",NROW(newdata)," x ",length(times),"\nProvided prediction matrix: ",NROW(object)," x ",NCOL(object),"\n\n",sep=""))
-    object
-}
-train.d <- SimSurv(300)
-test.d <- SimSurv(30)
-f12 <- coxph(Surv(time,status)~X1+X2,data=train.d)
-f1 <- coxph(Surv(time,status)~X1,data=train.d)
-f2 <- coxph(Surv(time,status)~X2,data=train.d)
-r <- pec(list(f2),data=mini,Hist(time,status)~1,times=5,exact=FALSE)
-mini <- data.frame(time=c(4,2,3,6,7),status=c(1,0,1,1,1),X2=c(-.1,0.1,-0.03,0.04,0.3),X1=c(0,1,0,1,0))
-p1 <- predictSurvProb(f1,newdata=mini,times=3.4)
-p2 <- predictSurvProb(f2,newdata=mini,times=3.4)
+    library(survival)
+    library(riskScore)
+    library(pec)
+    library(rms)
+    data(pbc)
+    pbc <- na.omit(pbc)
+    a <- cph(Surv(time,status!=0)~age+edema+sex+log(bili),data=pbc,surv=TRUE)
+    b <- cph(Surv(time,status!=0)~age+edema+sex+log(bili)+log(protime)+log(albumin),data=pbc,surv=TRUE)
+    set.seed(17)
+    sc <- Score(list(a,b),data=pbc,formula=Surv(time,status!=1)~1,times=c(1000),metrics=c("brier","auc"),nullModel=FALSE,splitMethod="bootcv",B=2)
+    r <- pec(list(a,b),data=pbc,start=NULL,Surv(time,status!=1)~1,times=c(100,500,1000),exact=FALSE)
+    u <- with(pbc,timeROC(T=time,delta=status!=0,marker=1-predictSurvProb(a,times=1500,newdata=pbc),cause=1,times=1500,iid=TRUE))
+    u2 <- with(pbc,timeROC(T=time,delta=status!=0,marker=1-predictSurvProb(b,times=1500,newdata=pbc),cause=1,times=c(1500)))
+    v <- Score(list(a,b),data=pbc,formula=Surv(time,status!=0)~1,times=c(500,1500),metrics=c("AUC"))
+    u
+    v
+#+END_SRC
+
+*** Mini data set for debugging
+#+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
+mini <- data.frame(time=c(4,2,3,6,7),status=c(1,0,1,1,1),X2=c(-.1,0.1,-0.03,0.04,0.3),X1=c(7,1,9,4,2))
 Source(riskScore)
-testit <- Score(list(f2),data=test.d,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
-## testmini <- Score(list(f2,f1),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
-testmini <- Score(list(f2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
-testmini$noSplitPerf[[1]]$AUC
-with(mini,timeROC(T=time,delta=status,marker=-p2,cause=1,times=3.4))
-u <- with(mini,timeROC(T=time,delta=status,marker=p1,cause=1,times=3.4,iid=TRUE))
-estmini <- Score(list(p1),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
-u2 <- with(mini,timeROC(T=time,delta=status,marker=p2,cause=1,times=3.4,iid=TRUE))
-estmini2 <- Score(list(-p2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
+Score(list(mini$X1,mini$X2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
+with(mini,timeROC(T=time,delta=status,marker=X1,cause=1,times=3.4))
+with(mini,timeROC(T=time,delta=status,marker=X2,cause=1,times=3.4,iid=TRUE))
 #+END_SRC
-
-#+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
-ttt <- seq(1,10)
-ttt <- 8
-set.seed(8)
-train.d <- SimSurv(8)
-train.d <- train.d[order(train.d$time,-train.d$status),]
-Source(riskScore,silent=TRUE);testauc <- Score(list(train.d$X2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
-testauc$noSplitPerf
-Source(timeROC,silent=TRUE);troc <- with(train.d,timeROC(T=time,delta=status,marker=X2,cause=1,times=ttt))
-head(cbind(troc$FP[,2],troc$TP[,2]))
-#+END_SRC
-
-** fixed marker, several time points
 
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
 ttt <- seq(1,10)
 set.seed(899)
 train.d <- SimSurv(300)
 train.d <- train.d[order(train.d$time,-train.d$status),]
-Source(riskScore,silent=TRUE);testauc <- Score(list(train.d$X2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
-Source(timeROC,silent=TRUE);troc <- with(train.d,timeROC(T=time,delta=status,marker=X2,cause=1,times=ttt))
+testauc <- Score(list(train.d$X2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
+troc <- with(train.d,timeROC(T=time,delta=status,marker=X2,cause=1,times=ttt))
 plot(troc$times,troc$AUC,lwd=7,col=2,xlim=range(troc$times),ylim=c(0.5,1),type="b")
-lines(testauc$times,unlist(testauc$noSplitPerf$numeric$AUC),col="orange",lwd=2)
-#+END_SRC
-
-** Cox model, several time points
-
-#+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
-set.seed(899)
-train.d <- SimSurv(300)
-train.d <- train.d[order(train.d$time,-train.d$status),]
-f2 <- coxph(Surv(time,status)~X2,data=train.d)
-Source(riskScore,silent=TRUE);testauc <- Score(list(f2),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="none",formula=Surv(time,status)~1)
-troc.auc <- sapply(ttt,function(t){
-                       troc <- with(train.d,timeROC(T=time,delta=status,marker=-predictSurvProb(f2,times=t,newdata=train.d),cause=1,times=t))$AUC[[2]]
-                   })
-plot(ttt,troc.auc,lwd=7,col=2,xlim=range(troc$times),ylim=c(0.5,1),type="b")
-lines(testauc$AUC$score[model=="coxph",times],testauc$AUC$score[model=="coxph",AUC],col="yellow",lwd=3)
+plot(testauc$AUC,add=TRUE,models="numeric",type="b")
 #+END_SRC
 
 ** Cox model, cross-validation
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes
-Source(riskScore,silent=TRUE)
+library(riskScore)
 set.seed(899)
 train.d <- SimSurv(300)
 train.d <- train.d[order(train.d$time,-train.d$status),]
 library(rms)
 f2 <- cph(Surv(time,status)~X2,data=train.d,surv=TRUE)
-f2a <- cph(Surv(time,status)~X2,data=train.d,surv=TRUE)
+f2a <- cph(Surv(time,status)~X2+X1,data=train.d,surv=TRUE)
 ttt <- c(2,4,8)
-ttt <- c(5,8)
-Source(riskScore,silent=TRUE)
 cv.brier <- Score(list(f2a),data=train.d,times=ttt,metrics="Brier",censModel="marginal",splitMethod="bootcv",B=3,formula=Surv(time,status)~1)
 cv.auc <- Score(list(f2a),data=train.d,times=ttt,metrics="AUC",censModel="marginal",splitMethod="bootcv",B=3,formula=Surv(time,status)~1)
 cv.both <- Score(list(f2,f2a),data=train.d,times=ttt,metrics=c("auC","briEr"),censModel="marginal",splitMethod="bootcv",B=3,formula=Surv(time,status)~1)
+plot(cv.both$AUC,type="b")
 #+END_SRC
 
 ** iid KM vs timeROC
@@ -341,8 +294,65 @@ library(riskScore)
 library(timeROC)
 library(rms)
 ex <- data.frame(time=c(1.3,2.5,1,4,2,3,6,7,9),status=c(1,1,2,1,0,2,1,2,1),X1=c(5,7,8,1,1,3,4,3,0),X2=c(2,9,8,1,1,3,4,3,0))
-Source(timeROC,silent=TRUE);with(ex,timeROC(T=time,delta=status,marker=X1,cause=1,times=4.1,iid=TRUE))
-Source(riskScore,silent=TRUE);Score(list(ex$X1),data=ex,formula=Hist(time,status)~1,times=4.1,metrics="aUc",nullModel=FALSE)
-Source(timeROC,silent=TRUE);with(ex,timeROC(T=time,delta=status,marker=X2,cause=1,times=4.1,iid=TRUE))
-Source(riskScore,silent=TRUE);Score(list(ex$X2),data=ex,formula=Hist(time,status)~1,times=4.1,metrics="aUc",nullModel=FALSE)
+with(ex,timeROC(T=time,delta=status,marker=X1,cause=1,times=4.1,iid=TRUE))
+Score(list(ex$X1),data=ex,formula=Hist(time,status)~1,times=4.1,metrics="aUc",nullModel=FALSE)
+## 
+with(ex,timeROC(T=time,delta=status,marker=X2,cause=1,times=4.1,iid=TRUE))
+Score(list(ex$X2),data=ex,formula=Hist(time,status)~1,times=4.1,metrics="aUc",nullModel=FALSE)
 #+END_SRC
+
+#+RESULTS[<2016-01-06 18:34:30> fd1464472ee94612ccac04201ac033a8c6a31148]:
+:RESULTS:
+Time-dependent-Roc curve estimated using IPCW  (n=9, with competing risks). 
+      Cases Survivors Other events Censored AUC_1 (%)  se_1 AUC_2 (%)  se_2
+t=0       0         9            0        0        NA    NA        NA    NA
+t=4.1     3         3            2        1     76.67 22.13     60.74 23.28
+
+Method used for estimating IPCW:marginal 
+
+Total computation time : 0.01  secs.
+
+Metric AUC:
+$score
+     model times       AUC    se.AUC lower.AUC upper.AUC
+1: numeric   4.1 0.6073529 0.2328417 0.1509915  1.063714
+Time-dependent-Roc curve estimated using IPCW  (n=9, with competing risks). 
+      Cases Survivors Other events Censored AUC_1 (%) se_1 AUC_2 (%)  se_2
+t=0       0         9            0        0        NA   NA        NA    NA
+t=4.1     3         3            2        1     56.67 27.2     48.38 26.65
+
+Method used for estimating IPCW:marginal 
+
+Total computation time : 0.01  secs.
+
+Metric AUC:
+$score
+     model times       AUC    se.AUC   lower.AUC upper.AUC
+1: numeric   4.1 0.4838235 0.2665445 -0.03859402  1.006241
+:END:
+
+** Brier score competing risks: Paul's Webappendix vs Score
+
+#+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
+library(prodlim)
+library(data.table)
+library(rms)
+library(pec)
+library(survival)
+Source(riskScore,silent=TRUE)
+source("~/research/tmp/Data-and-R-code/Rcode/Rfunctions/BS.R")
+source("~/research/tmp/Data-and-R-code/Rcode/Rfunctions/ComputeiidKM.R")
+set.seed(27)
+train <- SimCompRisk(100)
+d <- SimCompRisk(4)
+d <- d[,-c(1:3,8)]
+d$time <- round(d$time)
+d$X2 <- round(d$X2)
+library(riskRegression)
+f <- CSC(Hist(time,event)~X1+X2,data=train)
+p <- predictEventProb(f,newdata=d,times=5,cause=1)
+system.time(a <- BS(timepoints=5,d$time,d$event,p,cause=1,compute.iid=TRUE))
+system.time(b <- Score(list(p),formula=Hist(time,event)~1,times=5,data=d,metrics="Brier",nullModel=FALSE))
+print(rbind(cbind(TROC.BS=a$BS,TROC.se=a$sd),b$Brier$score[,c(Brier,se.Brier)]))
+#+END_SRC
+

@@ -33,7 +33,7 @@
 #' \method{predictSurvProb}{coxph}(object,newdata,times,...)
 #' \method{predictSurvProb}{matrix}(object,newdata,times,...)
 #' \method{predictSurvProb}{selectCox}(object,newdata,times,...)
-#' \method{predictSurvProb}{pecCforest}(object,newdata,times,...)
+# #' \method{predictSurvProb}{pecCforest}(object,newdata,times,...)
 #' \method{predictSurvProb}{prodlim}(object,newdata,times,...)
 #' \method{predictSurvProb}{psm}(object,newdata,times,...)
 #' \method{predictSurvProb}{survfit}(object,newdata,times,...)
@@ -530,13 +530,13 @@ predictProb.randomForest <- function(object,newdata,times,...){
 ## }
 
 ##' @export 
-predictSurvProb.pecCforest <- function (object, newdata, times, ...) {
-    requireNamespace("party")
-    survObj <- party::treeresponse(object$forest,newdata=newdata)
-    p <- do.call("rbind",lapply(survObj,function(x){
-        predictSurvProb(x,newdata=newdata[1,,drop=FALSE],times=times)
-    }))
-    if (NROW(p) != NROW(newdata) || NCOL(p) != length(times)) 
-        stop(paste("\nPrediction matrix has wrong dimension:\nRequested newdata x times: ",NROW(newdata)," x ",length(times),"\nProvided prediction matrix: ",NROW(p)," x ",NCOL(p),"\n\n",sep=""))
-    p
-}
+## predictSurvProb.pecCforest <- function (object, newdata, times, ...) {
+    ## requireNamespace("party")
+    ## survObj <- party::treeresponse(object$forest,newdata=newdata)
+    ## p <- do.call("rbind",lapply(survObj,function(x){
+        ## predictSurvProb(x,newdata=newdata[1,,drop=FALSE],times=times)
+    ## }))
+    ## if (NROW(p) != NROW(newdata) || NCOL(p) != length(times)) 
+        ## stop(paste("\nPrediction matrix has wrong dimension:\nRequested newdata x times: ",NROW(newdata)," x ",length(times),"\nProvided prediction matrix: ",NROW(p)," x ",NCOL(p),"\n\n",sep=""))
+    ## p
+## }

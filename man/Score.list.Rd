@@ -6,7 +6,7 @@
 \title{Score risk predictions}
 \usage{
 \method{Score}{list}(object, formula, data, metrics = c("auc", "brier"),
-  plots = c("roc", "calibration"), event = 1, times, landmarks,
+  plots = c("roc", "calibration"), cause = 1, times, landmarks,
   useEventTimes = FALSE, nullModel = TRUE, test = TRUE, alpha = 0.05,
   dolist, censMethod = "ipcw", censModel = "cox", splitMethod, B, M,
   trainseeds, ...)
@@ -23,7 +23,7 @@ the right hand side of the formula is used to estimate the IPCW model.}
 
 \item{plots}{Character vector specifying which plots to prepare.}
 
-\item{event}{Event of interest. Used for binary outcome \code{Y} to specify that risks are risks of the event \code{Y=event}
+\item{cause}{Event of interest. Used for binary outcome \code{Y} to specify that risks are risks of the event \code{Y=event}
 and for competing risks outcome to specify the cause of interest.}
 
 \item{times}{For survival and competing risks outcome: list of prediction horizons. All times which are greater
@@ -118,6 +118,22 @@ splitMethod="bootcv",B=3)
 Score(list("Cox(X1+X2+X7+X9)"=cox1,"Cox(X3+X5+X6)"=cox2),
       formula=Surv(time,event)~1,data=trainSurv,dolist=2,
 nullModel=FALSE,test=TRUE,times=c(5,8),splitMethod="bootcv",B=3)
+
+# competing risks outcome
+set.seed(18)
+trainCR <- sampleData(40,outcome="competing.risks")
+testCR <- sampleData(40,outcome="competing.risks")
+library(riskRegression)
+library(cmprsk)
+# Cause-specific Cox regression
+csc1 = CSC(Hist(time,event)~X1+X2+X7+X9,data=trainCR)
+csc2 = CSC(Hist(time,event)~X3+X5+X6,data=trainCR)
+# Fine-Gray regression
+fgr1 = FGR(Hist(time,event)~X1+X2+X7+X9,data=trainCR,cause=1)
+fgr2 = FGR(Hist(time,event)~X3+X5+X6,data=trainCR,cause=1)
+Score(list("CSC(X1+X2+X7+X9)"=csc1,"CSC(X3+X5+X6)"=csc2,
+           "FGR(X1+X2+X7+X9)"=fgr1,"FGR(X3+X5+X6)"=fgr2),
+      formula=Hist(time,event)~1,data=testCR,test=TRUE,times=c(5,8))
 
 }
 \author{
