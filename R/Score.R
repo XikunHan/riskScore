@@ -432,10 +432,10 @@ Score.list <- function(object,
         }
         out <- lapply(metrics,function(m){
                           x <- do.call(paste(m,responseType,sep="."),input)
-                          if (!is.null(x$score))
-                              x$score[,model:=factor(model,levels=mlevs,mlabels)]
-                          else
-                              x[,model:=factor(model,levels=mlevs,mlabels)]
+                          ## if (!is.null(x$score))
+                          x$score[,model:=factor(model,levels=mlevs,mlabels)]
+                          ## else
+                          ## x[,model:=factor(model,levels=mlevs,mlabels)]
                           if (NROW(x$test)>0){
                               x$test[,model1:=factor(model1,levels=mlevs,mlabels)]
                               x$test[,model2:=factor(model2,levels=mlevs,mlabels)]
@@ -591,7 +591,7 @@ Brier.binary <- function(DT,test=TRUE,alpha,N,NT,NF,dolist){
         test.Brier <- DT[,getComparisons(data.table(x=Brier,IC=residuals,model=model),NF=NF,N=N,alpha=alpha,dolist=dolist)]
         Brier <- list(score=score,test=test.Brier)
     }else{
-         Brier <- DT[,list(Brier=mean(residuals)),by=list(model)]
+         Brier <- list(score=DT[,list(Brier=mean(residuals)),by=list(model)])
      }
     Brier
 }
@@ -615,7 +615,8 @@ AUC.binary <- function(DT,breaks=NULL,test,alpha,N,NT,NF,dolist){
     else{
         score <- DT[,list(AUC=auRoc.numeric(risk,ReSpOnSe,breaks=NULL)),by=list(model)]
     }
-    AUC <- score
+    AUC <- list(score=score)
+    AUC
 }
 Brier.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
     Yt=time=times=Residuals=risk=ipcwResiduals=WTi=Wt=status=setorder=model=IC.Brier=data.table=sd=lower.Brier=qnorm=se.Brier=upper.Brier=NULL
@@ -641,7 +642,7 @@ Brier.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
         test.Brier <- DT[,getComparisons(data.table(x=Brier,IC=IC.Brier,model=model),NF=NF,N=N,alpha=alpha,dolist=dolist),by=list(times)]
         Brier <- list(score=score,test=test.Brier)
     }else{
-         Brier <- DT[,data.table(Brier=sum(ipcwResiduals)/N),by=list(model,times)]
+         Brier <- list(score=DT[,data.table(Brier=sum(ipcwResiduals)/N),by=list(model,times)])
      }
     Brier
 }
@@ -669,7 +670,7 @@ Brier.competing.risks <- function(DT,MC,test,alpha,N,NT,NF,dolist,cause){
         test.Brier <- DT[,getComparisons(data.table(x=Brier,IC=IC.Brier,model=model),NF=NF,N=N,alpha=alpha,dolist=dolist),by=list(times)]
         Brier <- list(score=score,test=test.Brier)
     }else{
-         Brier <- DT[,data.table(Brier=sum(ipcwResiduals)/N),by=list(model,times)]
+         Brier <- list(score=DT[,data.table(Brier=sum(ipcwResiduals)/N),by=list(model,times)])
      }
     Brier
 }
@@ -720,7 +721,7 @@ AUC.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
         test.AUC <- DT[,getComparisons(data.table(x=AUC,IC=IC.AUC,model=model),NF=NF,N=N,alpha=alpha,dolist=dolist),by=list(times)]
         AUC <- list(score=score,test=test.AUC)
     }else{
-         AUC <- score
+         AUC <- list(score=score)
      }
     AUC
 }
@@ -765,7 +766,7 @@ AUC.competing.risks <- function(DT,MC,test,alpha,N,NT,NF,dolist,cause){
         test.AUC <- DT[,getComparisons(data.table(x=AUC,IC=IC.AUC,model=model),NF=NF,N=N,alpha=alpha,dolist=dolist),by=list(times)]
         AUC <- list(score=score,test=test.AUC)
     }else{
-         AUC <- score
+         AUC <- list(score=score)
      }
     AUC
 }
