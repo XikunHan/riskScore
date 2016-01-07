@@ -565,14 +565,14 @@ print.score <- function(x,B=0,...){
     if (B>0){
         print(x$score)
         cat(paste0("\nCross-validation (average of ",B," steps)\n\n"))
-        if (!is.null(x$tests)){
-            print(x$tests)
+        if (!is.null(x$test)){
+            print(x$test)
             cat(paste0("\nMultisplit test (",B," splits)\n\n"))
         }
     }else{
          print(x$score)
-         if (!is.null(x$tests))
-             print(x$tests)
+         if (!is.null(x$test))
+             print(x$test)
      }
 }
 
@@ -707,6 +707,7 @@ AUC.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
     ## auc <- DT[nodups,list(AUC=sum((FPt-c(0,FPt[-N]))*((c(0,TPt[-N])+TPt)/2))),by=list(model,times)]
     score <- DT[nodups,list(AUC=AireTrap(FPt,TPt)),by=list(model,times)]
     data.table::setkey(score,model,times)
+    ## browser(skipCalls=1)
     if (test==TRUE){
         ## compute influence function
         data.table::setorder(DT,model,times,time,-status)

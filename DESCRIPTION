@@ -16,6 +16,7 @@ Imports:
     rms (>= 4.2-0),
     survival (>= 2.37-7),
     lava (>= 1.4.1)
+LinkingTo: Rcpp, RcppArmadillo
 Suggests:
     timereg,
     randomForestSRC,

@@ -59,25 +59,35 @@ library(rms)
 library(riskScore)
 set.seed(19)
 N <- 300
-M <- 300
+M <- 2000
 m <- lvm()
 train.d <- SimSurv(N)
 test.d <- SimSurv(M)
 test.d$time <- round(test.d$time,1)
 f12 <- coxph(Surv(time,status)~X1+X2,data=train.d)
 test.d$X2 <- abs(round(test.d$X2,2))
-tROCtime <- system.time(tROC <- with(test.d,timeROC(T=time,delta=status,marker=X2,times=5,cause=1,iid=TRUE)))
+## Source(riskScore)
 Rscoretime <- system.time(Rscore <- Score(list(test.d$X2),data=test.d,formula=Surv(time,status)~1,times=5,metrics=c("AUC"),nullModel=FALSE,test=TRUE))
+tROCtime <- system.time(tROC <- with(test.d,timeROC(T=time,delta=status,marker=X2,times=5,cause=1,iid=TRUE)))
 print(cbind(timeROC.AUC=tROC$AUC[[2]],timeROC.seAUC=tROC$inference$vect_sd_1[[2]],Rscore$AUC$score))
 cbind(timeROC.time=tROCtime[[1]],Rscore.time=Rscoretime[[1]])
 #+END_SRC   
 
-#+RESULTS[<2016-01-06 15:24:51> cd80a9df8d5aed0839b2456d6757b4fb12737ec8]:
+#+RESULTS[<2016-01-07 16:18:03> 57bae4b1920b22cd2ce8ed520229dae689082238]:
 :RESULTS:
-   timeROC.AUC timeROC.seAUC   model times       AUC   se.AUC lower.AUC upper.AUC
-1:   0.8333333     0.1944444 numeric     5 0.8333333 0.172809 0.4946339  1.172033
+
+Seconds:
+   user  system elapsed 
+  0.004   0.000   0.004
+   timeROC.AUC timeROC.seAUC   model times       AUC     se.AUC lower.AUC upper.AUC
+1:   0.5418449    0.01430215 numeric     5 0.5414689 0.01794614 0.5062951 0.5766427
      timeROC.time Rscore.time
-[1,]        0.004       0.044
+[1,]       10.844       0.636
+:END:
+   timeROC.AUC timeROC.seAUC   model times       AUC     se.AUC lower.AUC upper.AUC
+1:   0.5415454    0.03789788 numeric     5 0.5510015 0.01304824 0.5254274 0.5765756
+     timeROC.time Rscore.time
+[1,]        0.052       3.364
 :END:
 
 ** Score versus timeROC::compare
@@ -228,7 +238,7 @@ $test
 *** Mini data set for debugging
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
 mini <- data.frame(time=c(4,2,3,6,7),status=c(1,0,1,1,1),X2=c(-.1,0.1,-0.03,0.04,0.3),X1=c(7,1,9,4,2))
-Source(riskScore)
+ Source(riskScore)
 Score(list(mini$X1,mini$X2),data=mini,formula=Surv(time,status)~1,times=c(3.4),metrics="AUC")
 with(mini,timeROC(T=time,delta=status,marker=X1,cause=1,times=3.4))
 with(mini,timeROC(T=time,delta=status,marker=X2,cause=1,times=3.4,iid=TRUE))

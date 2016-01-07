@@ -19,7 +19,10 @@ getInfluenceCurve.AUC.survival <- function(t,n,time,risk,Cases,Controls1,ipcwCon
     vectTisupt <- n*Controls1/sum(Controls1)
     # Integral_0^T_i dMC_k/S for i %in% Cases
     MC.Ti.cases <- MC[sindex(eval.times=time[Cases],jump.times=unique(time)),,drop=FALSE]
-    T1 <- colSums(crossprod(htij1,1+MC.Ti.cases))/n
+    ## browser()
+    one <- rbind(rep(1,NCOL(htij1)))
+    T1 <- cprod(cprod(one,htij1,0,0,1),1+MC.Ti.cases,0,0,0)/n
+    ## print(system.time(T1 <- colSums(crossprod(htij1,1+MC.Ti.cases))/n))
     T3 <- colSums(hathtstar*(vectTisupt + (fi1t*(1+MC)-F01t)/F01t))
     Term.ijak <- (T1-T3)/(F01t*St)
     Term.ikaj <- (rowSumshtij1 - n*hathtstar)/(F01t*St)
@@ -27,6 +30,25 @@ getInfluenceCurve.AUC.survival <- function(t,n,time,risk,Cases,Controls1,ipcwCon
     ## the influence function according to Blanche et al. 2013, DOI: 10.1002/sim.5958, Statistics in Medicine, Appendix A
     (Term.ijak + Term.ikaj + Term.jkai)/(n)
 }
+
+
+## NTC <- NCOL(MC.Ti.cases)
+## T1 <- numeric(NTC)
+## for (j in 1:NTC){
+## T1[j] <- sum(cprod(htij1,(1+MC.Ti.cases[,j,drop=FALSE]),0,1,0)/n)
+## }
+## system.time(T1a <- sapply(1:NCOL(MC.Ti.cases),function(j){sum(cprod(htij1,(1+MC.Ti.cases[,j,drop=FALSE]),0,1,0)/n)}))
+## system.time(T1 <- colSums(crossprod(htij1,1+MC.Ti.cases))/n)
+## system.time(T1 <- (crossprod(crossprod(one,t(htij1)),1+MC.Ti.cases))/n)
+## A <- big.matrix(NROW(htij1),NCOL(htij1))
+## A[,] <- htij1
+## B <- big.matrix(NROW(MC.Ti.cases),NCOL(MC.Ti.cases))
+## B[,] <- 1+MC.Ti.cases
+## T1 <- t(A)%*%B
+## T1 <- cprod(htij1,1+MC.Ti.cases,1,1,0)/n
+## system.time(T1 <- cprod(htij1,1+MC.Ti.cases,1,1,0)/n)
+## system.time(T1b <- cprod(A,1+MC.Ti.cases,1,0,0)/n)
+
 
 ## IMPORTANT : data have to be ordered by time (and for ties by reverse status)
 getInfluenceCurve.AUC.competing.risks <- function(t,n,time,risk,Cases,Controls1,Controls2,ipcwControls1,ipcwControls2,ipcwCases,MC){
@@ -64,13 +86,19 @@ getInfluenceCurve.AUC.competing.risks <- function(t,n,time,risk,Cases,Controls1,
     # Integral_0^t dMC_k/S for all i
     MC.t <- MC[prodlim::sindex(eval.times=t,jump.times=unique(time)),,drop=TRUE]
     # we compute \frac{1}{n}\sum{i=1}^n \sum{j=1}^n \sum{l=1}^n \Psi{ijkl}(t)
-    T1 <- colSums(crossprod(htij1,1+MC.Ti.cases))
-    T2 <- colSums(crossprod(htij2,1+MC.Ti.cases))
+    one <- rbind(rep(1,NCOL(htij1)))
+    T1 <- cprod(cprod(one,htij1,0,0,1),1+MC.Ti.cases,0,0,0)
+    ## T1 <- colSums(crossprod(htij1,1+MC.Ti.cases))
+    one <- rbind(rep(1,NCOL(htij2)))
+    T2 <- cprod(cprod(one,htij2,0,0,1),1+MC.Ti.cases,0,0,0)
+    ## T2 <- colSums(crossprod(htij2,1+MC.Ti.cases))
     T3 <- colSums((ht*(1-2*F01t)/(F01t*(1-F01t)))*(fi1t*(1+MC)-F01t))
     Term.ijlk <- ((T1 + T2) - n^2*ht - n*T3)/(F01t*(1-F01t))
     # we compute \frac{1}{n}\sum_{i=1}^n \sum_{j=1}^n \sum_{k=1}^n \Psi_{ijkl}(t)
     Q1 <- sapply(1:n,function(i)sum(htij1*(1+MC.t[i])))
-    Q2 <- colSums(crossprod(t(htij2),(1+MC.Ti.controls2)))
+    one <- rbind(rep(1,NROW(htij2)))
+    Q2 <- cprod(cprod(one,htij2,0,0,0),(1+MC.Ti.controls2),0,0,0)
+    ## Q2 <- colSums(crossprod(t(htij2),(1+MC.Ti.controls2)))
     Term.ijkl <- ((Q1 + Q2) - n^2*ht)/(F01t*(1-F01t))
     # we compute \frac{1}{n}\sum_{j=1}^n \sum_{k=1}^n \sum_{l=1}^n \Psi_{ijkl}(t)
     Term.jkli <-((colSumshtij1 + colSumshtij2)*n - n^2*ht - ( ht*n^2*(1-2*F01t) / (F01t*(1-F01t)) ) *(fi1t - F01t) )/(F01t*(1-F01t))
