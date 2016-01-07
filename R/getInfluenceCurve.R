@@ -62,7 +62,7 @@ getInfluenceCurve.AUC.competing.risks <- function(t,n,time,risk,Cases,Controls1,
     # Integral_0^T_i dMC_k/S for i %in% Controls 2
     MC.Ti.controls2 <- MC[sindex(eval.times=time[Controls2],jump.times=unique(time)),,drop=FALSE]
     # Integral_0^t dMC_k/S for all i
-    MC.t <- MC[prodlim::sindex(jump.times=time,eval.times=t),,drop=TRUE]
+    MC.t <- MC[prodlim::sindex(eval.times=t,jump.times=unique(time)),,drop=TRUE]
     # we compute \frac{1}{n}\sum{i=1}^n \sum{j=1}^n \sum{l=1}^n \Psi{ijkl}(t)
     T1 <- colSums(crossprod(htij1,1+MC.Ti.cases))
     T2 <- colSums(crossprod(htij2,1+MC.Ti.cases))
@@ -86,7 +86,8 @@ getInfluenceCurve.Brier <- function(t,time,Yt,ipcwResiduals,MC){
     hit2=(Yt==1)*ipcwResiduals
     Brier <- mean(ipcwResiduals)
     ## FIXME: make sure that sindex cannot be 0
-    Int0tdMCsurEffARisk <- MC[prodlim::sindex(time,t),,drop=FALSE]
+    ## browser(skipCalls=1)
+    Int0tdMCsurEffARisk <- MC[prodlim::sindex(jump.times=unique(time),eval.times=t),,drop=FALSE]
     IC.Brier=hit1+hit2-Brier + mean(hit1)*Int0tdMCsurEffARisk + colMeans(MC*hit2)
 }
 
