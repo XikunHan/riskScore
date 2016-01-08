@@ -14,24 +14,29 @@ using namespace Rcpp;
 //' @author Thomas Alexander Gerds <tag@@biostat.ku.dk>
 //' @export
 // [[Rcpp::export]]
-NumericMatrix cprod(NumericMatrix X, NumericMatrix Y, bool summit, bool transposeX, bool transposeY) {
+NumericMatrix colSumsCrossprod(NumericMatrix X, NumericMatrix Y, bool transposeY){
   arma::mat A(X.begin(), X.nrow(), X.ncol(), false);
   arma::mat B(Y.begin(), Y.nrow(), Y.ncol(), false);
-  arma::mat C;
-  if (transposeX) 
-    if (transposeY) 
-      C = A.t() * B.t();
-    else
-      C = A.t() * B;
+  arma::rowvec result;
+  if (transposeY)
+    result = arma::sum(A,1).t()*B.t();
   else
-    if (transposeY) 
-      C = A * B.t();
-    else
-      C = A * B;
-  int num_rows = C.n_rows;
-  int num_cols = C.n_cols;
-  if (summit){
-    C = sum(C,0);
-  }
-  return wrap(C);
+    result = arma::sum(A,1).t()*B;
+  return wrap(result); 
 }
+
+//' @export
+// [[Rcpp::export]]
+NumericMatrix rowSumsCrossprod(NumericMatrix X, NumericMatrix Y, bool transposeY){
+  arma::mat A(X.begin(), X.nrow(), X.ncol(), false);
+  arma::mat B(Y.begin(), Y.nrow(), Y.ncol(), false);
+  arma::rowvec result;
+  if (transposeY)
+      result = arma::sum(A,0)*B.t();
+  else
+      result = arma::sum(A,0)*B;
+  return wrap(result); 
+}
+
+
+ 

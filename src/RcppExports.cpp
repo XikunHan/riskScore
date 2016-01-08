@@ -6,18 +6,29 @@
 
 using namespace Rcpp;
 
-// cprod
-NumericMatrix cprod(NumericMatrix X, NumericMatrix Y, bool summit, bool transposeX, bool transposeY);
-RcppExport SEXP riskScore_cprod(SEXP XSEXP, SEXP YSEXP, SEXP summitSEXP, SEXP transposeXSEXP, SEXP transposeYSEXP) {
+// colSumsCrossprod
+NumericMatrix colSumsCrossprod(NumericMatrix X, NumericMatrix Y, bool transposeY);
+RcppExport SEXP riskScore_colSumsCrossprod(SEXP XSEXP, SEXP YSEXP, SEXP transposeYSEXP) {
 BEGIN_RCPP
     Rcpp::RObject __result;
     Rcpp::RNGScope __rngScope;
     Rcpp::traits::input_parameter< NumericMatrix >::type X(XSEXP);
     Rcpp::traits::input_parameter< NumericMatrix >::type Y(YSEXP);
-    Rcpp::traits::input_parameter< bool >::type summit(summitSEXP);
-    Rcpp::traits::input_parameter< bool >::type transposeX(transposeXSEXP);
     Rcpp::traits::input_parameter< bool >::type transposeY(transposeYSEXP);
-    __result = Rcpp::wrap(cprod(X, Y, summit, transposeX, transposeY));
+    __result = Rcpp::wrap(colSumsCrossprod(X, Y, transposeY));
+    return __result;
+END_RCPP
+}
+// rowSumsCrossprod
+NumericMatrix rowSumsCrossprod(NumericMatrix X, NumericMatrix Y, bool transposeY);
+RcppExport SEXP riskScore_rowSumsCrossprod(SEXP XSEXP, SEXP YSEXP, SEXP transposeYSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject __result;
+    Rcpp::RNGScope __rngScope;
+    Rcpp::traits::input_parameter< NumericMatrix >::type X(XSEXP);
+    Rcpp::traits::input_parameter< NumericMatrix >::type Y(YSEXP);
+    Rcpp::traits::input_parameter< bool >::type transposeY(transposeYSEXP);
+    __result = Rcpp::wrap(rowSumsCrossprod(X, Y, transposeY));
     return __result;
 END_RCPP
 }

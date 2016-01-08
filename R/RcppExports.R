@@ -12,7 +12,12 @@
 #' @return If \code{summit=0} a matrix with dimensions k * m else a vector of length m.
 #' @author Thomas Alexander Gerds <tag@@biostat.ku.dk>
 #' @export
-cprod <- function(X, Y, summit, transposeX, transposeY) {
-    .Call('riskScore_cprod', PACKAGE = 'riskScore', X, Y, summit, transposeX, transposeY)
+colSumsCrossprod <- function(X, Y, transposeY) {
+    .Call('riskScore_colSumsCrossprod', PACKAGE = 'riskScore', X, Y, transposeY)
+}
+
+#' @export
+rowSumsCrossprod <- function(X, Y, transposeY) {
+    .Call('riskScore_rowSumsCrossprod', PACKAGE = 'riskScore', X, Y, transposeY)
 }
 
