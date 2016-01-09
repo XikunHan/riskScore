@@ -14,8 +14,7 @@
 #' 
 #' Currently there are \code{predictSurvProb} methods for objects of class cph
 #' (library rms), coxph (library survival), aalen (library timereg), cox.aalen
-#' (library timereg), 
-#' rpart (library rpart), product.limit (library prodlim),
+#' (library timereg), product.limit (library prodlim),
 #' survfit (library survival), psm (library rms)
 #' 
 #' @aliases predictSurvProb predictSurvProb.aalen
@@ -24,7 +23,6 @@
 #' predictSurvProb.rfsrc predictSurvProb.matrix predictSurvProb.pecCtree
 #' predictSurvProb.pecCforest predictSurvProb.prodlim predictSurvProb.psm
 #' predictSurvProb.selectCox predictSurvProb.survfit 
-#' predictSurvProb.pecRpart
 #' @usage
 #' \method{predictSurvProb}{aalen}(object,newdata,times,...)
 #' \method{predictSurvProb}{riskRegression}(object,newdata,times,...)
@@ -37,7 +35,6 @@
 #' \method{predictSurvProb}{prodlim}(object,newdata,times,...)
 #' \method{predictSurvProb}{psm}(object,newdata,times,...)
 #' \method{predictSurvProb}{survfit}(object,newdata,times,...)
-#' \method{predictSurvProb}{pecRpart}(object,newdata,times,...)
 #' #' \method{predictSurvProb}{pecCtree}(object,newdata,times,...)
 #' @param object A fitted model from which to extract predicted survival
 #' probabilities
@@ -208,42 +205,6 @@ predictSurvProb.cox.aalen <- function(object,newdata,times,...){
     p
 }
 
-#' Combines the rpart result with a stratified Kaplan-Meier (prodlim) to predict survival
-#'
-#' 
-#' @title Predict survival based on rpart tree object
-#' @param formula passed to rpart
-#' @param data passed to rpart
-#' @param ... passed to rpart
-#' @return list with three elements: ctree and call
-#' @examples
-#' library(prodlim)
-#' library(rpart)
-#' library(survival)
-#' set.seed(50)
-#' d <- SimSurv(50)
-#' nd <- data.frame(X1=c(0,1,0),X2=c(-1,0,1))
-#' f <- pecRpart(Surv(time,status)~X1+X2,data=d)
-#' predictSurvProb(f,newdata=nd,times=c(3,8))
-#' @export 
-pecRpart <- function(formula,data,...){
-    robj <- rpart::rpart(formula=formula,data=data,...)
-    nclass <- length(unique(robj$where))
-    data$rpartFactor <- factor(predict(robj,newdata=data,...))
-    form <- update(formula,paste(".~","rpartFactor",sep=""))
-    survfit <- prodlim::prodlim(form,data=data)
-    out <- list(rpart=robj,survfit=survfit,levels=levels(data$rpartFactor))
-    class(out) <- "pecRpart"
-    out
-}
-
-##' @export
-predictSurvProb.pecRpart <- function(object,newdata,times,...){
-    newdata$rpartFactor <- factor(predict(object$rpart,newdata=newdata),
-                                  levels=object$levels)
-    p <- predictSurvProb(object$survfit,newdata=newdata,times=times)
-    p
-}
     
 ##' @export 
 predictSurvProb.coxph <- function(object,newdata,times,...){
