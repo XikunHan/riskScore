@@ -6,13 +6,15 @@
 #' @importFrom graphics abline axis box legend lines mtext par plot points segments text title
 #' @importFrom stats model.frame model.response as.formula coef family formula median model.matrix na.fail na.omit pnorm predict quantile rbinom rexp runif sd smooth terms time update update.formula var wilcox.test qnorm
 #' @importFrom utils capture.output head select.list
+#' @importFrom Rcpp evalCpp
+#' 
 ##' @export
 Score <- function(object,...){
   UseMethod("Score",object=object)
 }
-##' List method to Score risk predictions
+##' Method to Score risk markers and risk prediction models
 ##'
-##' Describe details
+##' We compute the Brier score and the area under the ROC curve. For survival possibly with competing risk both are time-dependent.
 ##' @title Score risk predictions
 ##' @aliases Score
 ##' @param object List of risk predictions (see details and examples). 
@@ -552,27 +554,39 @@ Score.list <- function(object,
     output
 }
 
-#' @export
+##' Print of Scored risk predictions
+##'
+##' @title Print Scores and tests risk predictions
+#' @export 
+#' @param x Object obtained with \code{Score.list}
+#' @param ... passed to print
 print.Score <- function(x,...){
     B <- x$splitMethod$B
     for (m in x$metrics){
         cat(paste0("\nMetric ",m,":\n"))
-        print(x[[m]],B)
+        print(x[[m]],B, ...)
     }
 }
+
+##' Print metric specific element of risk prediction assessment
+##'
+##' @title Print metric specific results of risk prediction assessment
 #' @export
+#' @param x Element of the result of \code{Score.list}
+#' @param B Number of splits if any.
+#' @param ... passed to print
 print.score <- function(x,B=0,...){
     if (B>0){
         print(x$score)
         cat(paste0("\nCross-validation (average of ",B," steps)\n\n"))
         if (!is.null(x$test)){
-            print(x$test)
+            print(x$test,...)
             cat(paste0("\nMultisplit test (",B," splits)\n\n"))
         }
     }else{
          print(x$score)
          if (!is.null(x$test))
-             print(x$test)
+             print(x$test,...)
      }
 }
 

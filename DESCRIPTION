@@ -1,7 +1,7 @@
 Package: riskScore
 Type: Package
 Title: Scoring Risk Markers and Risk Prediction Models
-Version: 1.0.1
+Version: 1.0.2
 Date: 2016-01-04
 Author: Thomas Alexander Gerds and Paul Blanche
 Maintainer: Thomas Alexander Gerds <tagteam@sund.ku.dk>
@@ -12,6 +12,8 @@ Depends:
 Imports:
     stats,
     graphics,
+    Rcpp (>= 0.12.2),
+    RcppArmadillo,
     foreach (>= 1.4.2),
     rms (>= 4.2-0),
     survival (>= 2.37-7),
