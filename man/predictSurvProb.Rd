@@ -10,7 +10,6 @@
 \alias{predictSurvProb.matrix}
 \alias{predictSurvProb.pecCforest}
 \alias{predictSurvProb.pecCtree}
-\alias{predictSurvProb.pecRpart}
 \alias{predictSurvProb.prodlim}
 \alias{predictSurvProb.psm}
 \alias{predictSurvProb.rfsrc}
@@ -30,7 +29,6 @@
 \method{predictSurvProb}{prodlim}(object,newdata,times,...)
 \method{predictSurvProb}{psm}(object,newdata,times,...)
 \method{predictSurvProb}{survfit}(object,newdata,times,...)
-\method{predictSurvProb}{pecRpart}(object,newdata,times,...)
 #' \method{predictSurvProb}{pecCtree}(object,newdata,times,...)
 }
 \arguments{
@@ -67,8 +65,7 @@ model of class \code{CLASS} with the function \code{predictSurvProb.CLASS}.
 
 Currently there are \code{predictSurvProb} methods for objects of class cph
 (library rms), coxph (library survival), aalen (library timereg), cox.aalen
-(library timereg),
-rpart (library rpart), product.limit (library prodlim),
+(library timereg), product.limit (library prodlim),
 survfit (library survival), psm (library rms)
 }
 \note{

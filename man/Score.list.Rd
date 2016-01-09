@@ -5,8 +5,8 @@
 \alias{Score.list}
 \title{Score risk predictions}
 \usage{
-\method{Score}{list}(object, formula, data, metrics = c("auc", "brier"),
-  plots = c("roc", "calibration"), cause = 1, times, landmarks,
+\method{Score}{list}(object, formula, byformula, data, metrics = c("auc",
+  "brier"), plots = c("roc", "calibration"), cause = 1, times, landmarks,
   useEventTimes = FALSE, nullModel = TRUE, test = TRUE, alpha = 0.05,
   dolist, censMethod = "ipcw", censModel = "cox", splitMethod, B, M,
   trainseeds, ...)
