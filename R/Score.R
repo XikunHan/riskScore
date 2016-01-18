@@ -118,6 +118,8 @@ Score.list <- function(object,
                        formula,
                        data,
                        metrics=c("auc","brier"),
+                       ## summary=c("riskQuantile","riskClass"),
+                       summary=c("riskQuantile"),
                        plots=c("roc","calibration"),
                        cause=1,
                        times,
@@ -127,6 +129,8 @@ Score.list <- function(object,
                        test=TRUE,
                        alpha=0.05,
                        dolist,
+                       Q=c(0.05,0.25,0.5,0.75,0.95),
+                       G=c(0,0.25,0.5,0.75,1),
                        censMethod="ipcw",
                        censModel="cox",
                        splitMethod,
@@ -238,6 +242,7 @@ Score.list <- function(object,
         data.table::setorder(data,time,-status)
         eventTimes <- unique(data[,time])
         maxtime <- eventTimes[length(eventTimes)]
+        ## print(maxtime)
         if (missing(landmarks)){
             start <- 0
             if (missing(times)){
@@ -274,7 +279,13 @@ Score.list <- function(object,
     ## Metrics <- lapply(metrics,grep,c("AUC","Brier"),ignore.case=TRUE,value=TRUE)
     metrics[grep("^auc$",metrics,ignore.case=TRUE)] <- "AUC"
     metrics[grep("^brier$",metrics,ignore.case=TRUE)] <- "Brier"
-    Plots <- lapply(plots,grep,c("Roc","Cal"),ignore.case=TRUE,value=TRUE)
+    plots[grep("^roc$",plots,ignore.case=TRUE)] <- "ROC"
+    plots[grep("^cal",plots,ignore.case=TRUE)] <- "Cal"
+    ## Plots <- lapply(plots,grep,c("Roc","Cal"),ignore.case=TRUE,value=TRUE)
+    if ("ROC" %in% plots) {
+        ## add AUC if needed
+        if (!("AUC" %in% metrics)) metrics <- c(metrics,"AUC")
+    }
     # }}}
     # -----------------IPCW outside loop -----------------------
     # {{{ 
@@ -320,6 +331,7 @@ Score.list <- function(object,
                                    traindata=NULL,
                                    trainseed=NULL,
                                    metrics,
+                                   plots,
                                    times,
                                    cause,
                                    test,
@@ -420,10 +432,9 @@ Score.list <- function(object,
                       NF=NF,
                       alpha=alpha,
                       test=test,
-                      dolist=dolist)
+                      dolist=dolist,Q=Q,G=G)
         if (responseType=="competing.risks")
             input <- c(input,list(cause=cause))
-        ## browser(skipCalls=1)
         if (responseType %in% c("survival","competing.risks") &&test==TRUE){
             if (censType=="rightCensored"){
                 input <- c(input,list(MC=response[,getInfluenceCurve.KM(time=time,status=status)]))
@@ -432,21 +443,33 @@ Score.list <- function(object,
                 input <- c(input,list(MC=matrix(0,ncol=length(response$time),nrow=length(unique(response$time)))))
             }
         }
-        out <- lapply(metrics,function(m){
-                          x <- do.call(paste(m,responseType,sep="."),input)
-                          ## if (!is.null(x$score))
-                          x$score[,model:=factor(model,levels=mlevs,mlabels)]
-                          ## else
-                          ## x[,model:=factor(model,levels=mlevs,mlabels)]
-                          if (NROW(x$test)>0){
-                              x$test[,model1:=factor(model1,levels=mlevs,mlabels)]
-                              x$test[,model2:=factor(model2,levels=mlevs,mlabels)]
-                          }else{
-                               if (!is.null(x$test)) x$test <- NULL
-                           }
-                          x
-                      })
-        names(out) <- metrics
+        out <- vector(mode="list",length=length(c(summary,metrics,plots)))
+        names(out) <- c(summary,metrics,plots)
+        for (s in summary){
+            out[[s]] <- do.call(paste(s,responseType,sep="."),input)
+            out[[s]]$score[,model:=factor(model,levels=mlevs,mlabels)]
+            if (NROW(out[[s]]$test)>0){
+                out[[s]]$test[,model1:=factor(model1,levels=mlevs,mlabels)]
+                out[[s]]$test[,model2:=factor(model2,levels=mlevs,mlabels)]
+            }
+        }
+        for (m in metrics){
+            if (m=="AUC" && "ROC" %in% plots){
+                input <- c(input, list(ROC=TRUE))
+                x <- do.call(paste(m,responseType,sep="."),input)
+                out[["ROC"]]$plotframe <- x$score$ROC
+                out[["ROC"]]$plotframe[,model:=factor(model,levels=mlevs,mlabels)]
+                out[[m]]$score <- x$score$AUC
+                out[[m]]$test <- x$score$test.AUC
+            }else{
+                 out[[m]] <- do.call(paste(m,responseType,sep="."),input)
+             }
+            out[[m]]$score[,model:=factor(model,levels=mlevs,mlabels)]
+            if (NROW(out[[m]]$test)>0){
+                out[[m]]$test[,model1:=factor(model1,levels=mlevs,mlabels)]
+                out[[m]]$test[,model2:=factor(model2,levels=mlevs,mlabels)]
+            }            
+        }
         out
     }
     # }}}
@@ -456,6 +479,7 @@ Score.list <- function(object,
                                   nullobject=nullobject,
                                   testdata=data,
                                   metrics=metrics,
+                                  plots=plots,
                                   times=times,
                                   cause=cause,
                                   test=test,
@@ -480,6 +504,7 @@ Score.list <- function(object,
                                                                   traindata=traindata,
                                                                   trainseed=trainseeds[b],
                                                                   metrics=metrics,
+                                                                  plots=plots,
                                                                   times=times,
                                                                   cause=cause,
                                                                   test=test,
@@ -545,28 +570,91 @@ Score.list <- function(object,
                             predictHandlerFun=predictHandlerFun,
                             censType=censType,
                             censoringHandling=censMethod,
-                            splitMethod=splitMethod,metrics=metrics))
-    for (m in metrics){
-        output[[m]]$metric <- m
-        class(output[[m]]) <- "score"
+                            splitMethod=splitMethod,metrics=metrics,plots=plots,
+                            summary=summary))
+    
+    for (p in c(plots)){
+        output[[p]]$plotmethod <- p
+        class(output[[p]]) <- c("scoreROC")
+    }
+    for (m in c(metrics,summary)){
+        output[[m]]$metrics <- m
+        class(output[[m]]) <- c("score")
     }
     class(output) <- "Score"
     output
 }
 
-##' Print of Scored risk predictions
+##' Print method for risk prediction scores
 ##'
-##' @title Print Scores and tests risk predictions
+##' @title Print Score object
 #' @export 
 #' @param x Object obtained with \code{Score.list}
 #' @param ... passed to print
 print.Score <- function(x,...){
     B <- x$splitMethod$B
-    for (m in x$metrics){
+    for (m in c(x$summary,x$metrics)){
         cat(paste0("\nMetric ",m,":\n"))
         print(x[[m]],B, ...)
     }
 }
+
+##' Plot method for risk prediction scores
+##'
+##' @title Plot Score object
+#' @export 
+#' @param x Object obtained with \code{Score.list}
+#' @param ... passed to print
+plot.Score <- function(x,which,...){
+    ## do.call(paste0("plot",(x[[m]],B, ...)))
+}
+
+##' Plot ROC curve 
+##'
+##' @title Plot ROC curve
+#' @export 
+#' @param x Object obtained with \code{Score.list}
+#' @param ... passed to print
+plot.score.ROC <- function(x,models,lwd=3,...){
+    plot(0,0,type="n",ylim = 0:1,
+         xlim = 0:1,
+         axes=FALSE,
+         xlab = "1-Specificity",
+         ylab = "Sensitivity")
+    prodlim::PercentAxis(1,at=seq(0,1,.25))
+    prodlim::PercentAxis(2,at=seq(0,1,.25))
+    pframe <- x$ROC$plotframe
+    if (!missing(models)) pframe <- pframe[model %in% models]
+    pframe[,col:=as.numeric(as.factor(model))]
+    pframe[,lwd:=lwd]
+    pframe[,lines(FPR,TPR,type="l",lwd=lwd,col=col),by=model]
+    pframe[,legend(x="bottomright",legend=unique(model),lwd=lwd[[1]],col=unique(col))]
+}
+
+##' Plot AUC curve
+##'
+##' @title Plot AUC curve
+#' @export 
+#' @param x Object obtained with \code{Score.list}
+#' @param ... passed to print
+plot.score.AUC <- function(x,models,lwd=3,xlim,ylim,...){
+    pframe <- x$AUC$score
+    if (missing(xlim)) xlim <- pframe[,range(times)]
+    if (missing(ylim)) ylim <- c(0.5,1)
+    plot(0,0,type="n",ylim = ylim,
+         xlim = xlim,
+         axes=FALSE,
+         xlab = "Time",
+         ylab = "AUC")
+    axis(1)
+    prodlim::PercentAxis(2,at=seq(0.5,1,.25))
+    if (!missing(models)) pframe <- pframe[model %in% models]
+    pframe[,col:=as.numeric(as.factor(model))]
+    pframe[,lwd:=lwd]
+    pframe[,lines(times,AUC,type="l",lwd=lwd,col=col),by=model]
+}
+
+
 
 ##' Print metric specific element of risk prediction assessment
 ##'
@@ -590,7 +678,7 @@ print.score <- function(x,B=0,...){
      }
 }
 
-Brier.binary <- function(DT,test=TRUE,alpha,N,NT,NF,dolist){
+Brier.binary <- function(DT,test=TRUE,alpha,N,NT,NF,dolist,...){
     residuals=risk=model=ReSpOnSe=lower.Brier=upper.Brier=se.Brier=NULL
     DT[,residuals:=(ReSpOnSe-risk)^2,by=model]
     score <- DT[,list(Brier=mean(residuals)),by=model]
@@ -609,30 +697,45 @@ Brier.binary <- function(DT,test=TRUE,alpha,N,NT,NF,dolist){
      }
     Brier
 }
-auRoc.numeric <- function(X,D,breaks){
+auRoc.numeric <- function(X,D,breaks,ROC){
     if (is.null(breaks)) breaks <- rev(sort(unique(X))) ## need to reverse when high X is concordant with {response=1}  
-    TPR <- c(prodlim::sindex(jump.times=X[D==1],eval.times=breaks,comp="greater",strict=FALSE)/sum(D==1),0)
-    FPR <- c(prodlim::sindex(jump.times=X[D==0],eval.times=breaks,comp="greater",strict=FALSE)/sum(D==0),0)
-    0.5 * sum(diff(c(0,FPR,1)) * (c(TPR,1) + c(0,TPR)))
+    TPR <- c(prodlim::sindex(jump.times=X[D==1],eval.times=breaks,comp="greater",strict=FALSE)/sum(D==1))
+    FPR <- c(prodlim::sindex(jump.times=X[D==0],eval.times=breaks,comp="greater",strict=FALSE)/sum(D==0))
+    if (ROC==TRUE)
+        data.table(risk=breaks,TPR,FPR)
+    else
+        0.5 * sum(diff(c(0,FPR,0,1)) * (c(TPR,0,1) + c(0,TPR,0)))
 }
-auRoc.factor <- function(X,D){
+auRoc.factor <- function(X,D,ROC){
     TPR <- (sum(D==1)-table(X[D==1]))/sum(D==1)
     FPR <- table(X[D==0])/sum(D==0)
-    0.5 * sum(diff(c(0,FPR,0,1)) * (c(TPR,0,1) + c(0,TPR,0)))
+    if (ROC==TRUE)
+        data.table(cbind(risk=c(sort(unique(X))),TPR,FPR))
+    else
+        0.5 * sum(diff(c(0,FPR,0,1)) * (c(TPR,0,1) + c(0,TPR,0)))
 }
-AUC.binary <- function(DT,breaks=NULL,test,alpha,N,NT,NF,dolist){
+
+AUC.binary <- function(DT,breaks=NULL,test,alpha,N,NT,NF,dolist,ROC,...){
     model=risk=ReSpOnSe=NULL
     data.table::setorder(DT,model,risk)
     if (is.factor(DT[["risk"]])){
-        score <- DT[,list(AUC=auRoc.factor(risk,ReSpOnSe)),by=list(model)]
+        score <- DT[,auRoc.factor(risk,ReSpOnSe,ROC=ROC),by=list(model)]
     }
     else{
-        score <- DT[,list(AUC=auRoc.numeric(risk,ReSpOnSe,breaks=NULL)),by=list(model)]
+        score <- DT[,auRoc.numeric(risk,ReSpOnSe,breaks=NULL,ROC=ROC),by=list(model)]
     }
-    AUC <- list(score=score)
-    AUC
+    if (ROC==FALSE){
+        setnames(score,"V1","AUC")
+        list(score=score)
+    }
+    else{
+        AUC <- score[,0.5 * sum(diff(c(0,FPR,0,1)) * (c(TPR,0,1) + c(0,TPR,0))),by=list(model)]
+        ROC <- score
+        list(score=list(AUC=AUC,ROC=ROC))
+    }
 }
-Brier.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
+
+Brier.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist,...){
     Yt=time=times=Residuals=risk=ipcwResiduals=WTi=Wt=status=setorder=model=IC.Brier=data.table=sd=lower.Brier=qnorm=se.Brier=upper.Brier=NULL
     ## compute 0/1 outcome:
     DT[,Yt:=1*(time<=times)]
@@ -658,9 +761,9 @@ Brier.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
     }else{
          Brier <- list(score=DT[,data.table(Brier=sum(ipcwResiduals)/N),by=list(model,times)])
      }
-    Brier
 }
-Brier.competing.risks <- function(DT,MC,test,alpha,N,NT,NF,dolist,cause){
+
+Brier.competing.risks <- function(DT,MC,test,alpha,N,NT,NF,dolist,cause,...){
     Yt=time=times=event=Residuals=risk=ipcwResiduals=WTi=Wt=status=setorder=model=IC.Brier=data.table=sd=lower.Brier=qnorm=se.Brier=upper.Brier=NULL
     ## compute 0/1 outcome:
     DT[,Yt:=1*(time<=times & event==cause)]
@@ -694,7 +797,7 @@ AireTrap <- function(FP,TP,N){
     sum((FP-c(0,FP[-N]))*((c(0,TP[-N])+TP)/2))
 }
 
-AUC.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
+AUC.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist,...){
     model=times=risk=Cases=time=status=Controls1=TPt=FPt=WTi=Wt=ipcwControls1=ipcwCases=IC.AUC=lower.AUC=se.AUC=upper.AUC=NULL
     cause <- 1
     ## assign Weights before ordering
@@ -742,7 +845,15 @@ AUC.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist){
 }
 
 
-AUC.competing.risks <- function(DT,MC,test,alpha,N,NT,NF,dolist,cause){
+AUC.competing.risks <- function(DT,
+                                MC,
+                                test,
+                                alpha,
+                                N,
+                                NT,
+                                NF,
+                                dolist,
+                                cause,...){
     model=times=risk=Cases=time=status=event=Controls1=Controls2=TPt=FPt=WTi=Wt=ipcwControls1=ipcwControls2=ipcwCases=IC.AUC=lower.AUC=se.AUC=upper.AUC=NULL
     ## assign Weights before ordering
     DT[,ipcwControls1:=1/(Wt*N)]
@@ -785,5 +896,6 @@ AUC.competing.risks <- function(DT,MC,test,alpha,N,NT,NF,dolist,cause){
      }
     AUC
 }
+
 
 

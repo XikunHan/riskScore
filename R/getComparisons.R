@@ -3,9 +3,9 @@
 ## author: Thomas Alexander Gerds
 ## created: Jan  3 2016 (13:30) 
 ## Version: 
-## last-updated: Jan  5 2016 (09:48) 
+## last-updated: Jan 14 2016 (11:11) 
 ##           By: Thomas Alexander Gerds
-##     Update #: 19
+##     Update #: 20
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -29,7 +29,5 @@ getComparisons <- function(dt,NF,N,alpha,dolist=NF:1){
                          }))
     }else {NULL}
 }
-
-
 #----------------------------------------------------------------------
 ### getComparisons.R ends here

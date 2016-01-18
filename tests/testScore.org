@@ -15,7 +15,7 @@ test.d <- sampleData(M,outcome="binary")
 f1 <- glm(Y~X1+X2+X6+X8,data=train.d,family=binomial)
 f2 <- lrm(Y~X1+X2+X9,data=train.d)
 f3 <- lrm(Y~X6,data=train.d)
-u <- Score(list(f1,f2,f3),data=test.d,formula=Y~1,metrics=c("Brier","auc"),test=FALSE)
+Score(list(f1,f2,f3),data=test.d,formula=Y~1,metrics=c("Brier","auc"),test=FALSE)
 library(ModelGood)
 ## v <- Brier(list(f1,f2,f3),data=test.d,splitMethod="none",verbose=FALSE)
 v <- Roc(list(f1,f2,f3),data=test.d,splitMethod="none",verbose=FALSE)
@@ -44,6 +44,26 @@ Metric AUC:
 3:        lrm 0.6609661
 4:      lrm.1 0.7586759
 :END:
+
+** ROC plot
+
+#+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
+library(lava)
+library(riskScore)
+library(ModelGood)
+library(data.table)
+library(rms)
+N <- 300
+M <- 200
+set.seed(18)
+train.d <- sampleData(N,outcome="binary")
+test.d <- sampleData(M,outcome="binary")
+f1 <- glm(Y~X1+X2+X6+X8,data=train.d,family=binomial)
+f2 <- lrm(Y~X1+X2+X9,data=train.d)
+f3 <- lrm(Y~X6,data=train.d)
+Source(riskScore);testr <- Score(list(f1,f2,f3),data=test.d,formula=Y~1,metrics=c("Brier","auc"),test=FALSE,nullModel=FALSE)
+plot.score.ROC(testr)
+#+END_SRC
 
 * Survival outcome
 ** Score vs timeROC
@@ -297,6 +317,24 @@ Seconds:
 [1] "Attributes: < Length mismatch: comparison on first 1 components >"
 :END:
 
+** plot time-dependent AUC
+
+#+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes
+library(lava)
+library(riskScore)
+set.seed(19)
+N <- 500
+M <- 200
+trainS <- sampleData(N,outcome="survival")
+testS <- sampleData(M,outcome="survival")
+c1 <- coxph(Surv(time,event)~X1+X2+X6+X8,data=trainS,x=TRUE)
+c2 <- coxph(Surv(time,event)~X1+X2+X9,data=trainS,x=TRUE)
+c3 <- coxph(Surv(time,event)~X6,data=trainS,x=TRUE)
+## plot(prodlim(Hist(time,event)~1,data=testS))
+ascore <- Score(list(c1,c2,c3),data=testS,formula=Surv(time,event)~1,times=3:18,metrics=c("AUC"),nullModel=FALSE,dolist=NULL,summary=NULL,plots=NULL)
+plot.score.AUC(ascore)
+#+END_SRC   
+
 * Competing risks
 
 #+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
@@ -366,3 +404,20 @@ system.time(b <- Score(list(p),formula=Hist(time,event)~1,times=5,data=d,metrics
 print(rbind(cbind(TROC.BS=a$BS,TROC.se=a$sd),b$Brier$score[,c(Brier,se.Brier)]))
 #+END_SRC
 
+** Retrospective risk assessment: risk difference conditional on outcome
+
+#+BEGIN_SRC R  :results output raw drawer  :exports results  :session *R* :cache yes 
+library(prodlim)
+library(riskScore)
+library(data.table)
+library(rms)
+library(pec)
+library(survival)
+set.seed(27)
+train <- SimCompRisk(100)
+library(riskRegression)
+f12 <- CSC(Hist(time,event)~X1+X2,data=train)
+f1 <- CSC(Hist(time,event)~X1,data=train)
+Source(riskScore,silent=TRUE)
+u <- Score(list(f12,f1),formula=Hist(time,event)~1,summary="riskQuantile",nullModel=FALSE,data=train)
+#+END_SRC   
