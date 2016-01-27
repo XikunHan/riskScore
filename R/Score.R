@@ -120,7 +120,7 @@ Score.list <- function(object,
                        metrics=c("auc","brier"),
                        ## summary=c("riskQuantile","riskClass"),
                        summary=c("riskQuantile"),
-                       plots=c("roc","calibration"),
+                       plots=c("roc","calibration","pvalues"),
                        cause=1,
                        times,
                        landmarks,
@@ -136,9 +136,10 @@ Score.list <- function(object,
                        splitMethod,
                        B,
                        M,
+                       seed,
                        trainseeds,
                        ...){
-
+    
     id=time=status=id=WTi=b=time=status=model1=model2=p=model=NULL
 
     # -----------------parse arguments and prepare data---------
@@ -454,13 +455,12 @@ Score.list <- function(object,
             }
         }
         for (m in metrics){
-            if (m=="AUC" && "ROC" %in% plots){
+            if (m=="AUC" && ("ROC" %in% plots)){
                 input <- c(input, list(ROC=TRUE))
-                x <- do.call(paste(m,responseType,sep="."),input)
-                out[["ROC"]]$plotframe <- x$score$ROC
+                out[[m]] <- do.call(paste(m,responseType,sep="."),input)
+                out[["ROC"]]$plotframe <- out[[m]]$ROC
                 out[["ROC"]]$plotframe[,model:=factor(model,levels=mlevs,mlabels)]
-                out[[m]]$score <- x$score$AUC
-                out[[m]]$test <- x$score$test.AUC
+                out[[m]]$ROC <- NULL
             }else{
                  out[[m]] <- do.call(paste(m,responseType,sep="."),input)
              }
@@ -468,7 +468,7 @@ Score.list <- function(object,
             if (NROW(out[[m]]$test)>0){
                 out[[m]]$test[,model1:=factor(model1,levels=mlevs,mlabels)]
                 out[[m]]$test[,model2:=factor(model2,levels=mlevs,mlabels)]
-            }            
+            }
         }
         out
     }
@@ -492,66 +492,58 @@ Score.list <- function(object,
     # {{{ 
     crossval <- NULL
     if (splitMethod$name=="BootCv"){
-        if (missing(trainseeds)||is.null(trainseeds))
+        if (missing(trainseeds)||is.null(trainseeds)){
+            if (!missing(seed)) set.seed(seed)
             trainseeds <- sample(1:1000000,size=B,replace=FALSE)
+        }
         crossval <- foreach (b=1:B) %dopar%{
                                          traindata=data[splitMethod$index[,b],,drop=FALSE]
                                          ## subset.data.table preserves order
                                          testdata <- subset(data,(match(1:N,unique(splitMethod$index[,b]),nomatch=0)==0),drop=FALSE)
-                                         cb <- computePerformance(object=object,
-                                                                  nullobject=nullobject,
-                                                                  testdata=testdata,
-                                                                  traindata=traindata,
-                                                                  trainseed=trainseeds[b],
-                                                                  metrics=metrics,
-                                                                  plots=plots,
-                                                                  times=times,
-                                                                  cause=cause,
-                                                                  test=test,
-                                                                  alpha=alpha,
-                                                                  dolist=dolist,
-                                                                  NF=NF,
-                                                                  NT=NT)
+                                         cb <- computePerformance(object=object,nullobject=nullobject,testdata=testdata,traindata=traindata,trainseed=trainseeds[b],metrics=metrics,plots=plots,times=times,cause=cause,test=test,alpha=alpha,dolist=dolist,NF=NF,NT=NT)
                                          cb
                                      }
         ## browser(skipCalls=1)
-        crossvalPerf <- lapply(names(crossval[[1]]),function(m){
-                                        ## if (test==TRUE){
-                                        if (length(crossval[[1]][[m]]$score)>0){
-                                            bootcv <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$score}))
-                                            ## if (length(dolist)>0){
-                                            if (length(crossval[[1]][[m]]$test)>0){
-                                                if (responseType %in% c("survival","competing.risks")){
-                                                    multisplit.test <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$test[,data.table(times,model1,model2,p)]}))
-                                                }else{
-                                                     multisplit.test <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$test[,data.table(model1,model2,p)]}))
-                                                 }
-                                            }else{ 
-                                                 multisplit.test <- NULL
-                                             }
-                                        }else{
-                                             multisplit.test <- NULL
-                                             bootcv <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]}))
-                                         }
-                                        if (responseType %in% c("survival","competing.risks")){
-                                            bootcv <- bootcv[,mean(eval(as.name(m))),by=list(model,times)]
-                                            data.table::setnames(bootcv,c("model","times",m))
-                                        } else{
-                                              bootcv <- bootcv[,mean(eval(as.name(m))),by=list(model)]
-                                              data.table::setnames(bootcv,c("model",m))
-                                          }
-                                        out <- list(bootcv)
-                                        names(out) <- "score"
-                                        ## names(out) <- paste0("Cross-validation (average of ",B," steps)")
-                                        if (!is.null(multisplit.test)){
-                                            ms <- list(multisplit.test)
-                                            names(ms) <- "tests"
-                                            ## names(ms) <- paste0("Multisplit test (",B," splits)")
-                                            out <- c(out,ms)
+        ## names(crossval[[1]])
+        crossvalPerf <- lapply(metrics,function(m){
+                                   ## if (test==TRUE){
+                                   if (length(crossval[[1]][[m]]$score)>0){
+                                       bootcv <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$score}))
+                                       ## if (length(dolist)>0){https://www.google.com/search?client=ubuntu&<channel=fs&q=test&ie=utf-8&oe=utf-8
+                                       if (length(crossval[[1]][[m]]$test)>0){
+                                           if (responseType %in% c("survival","competing.risks")){
+                                               multisplit.test <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$test[,data.table(times,model1,model2,p)]}))
+                                           }else{
+                                                multisplit.test <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$test[,data.table(model1,model2,p)]}))
+                                            }
+                                       }else{ 
+                                            multisplit.test <- NULL
                                         }
-                                        out
-                                    })
-        names(crossvalPerf) <- names(crossval[[1]])
+                                   }else{
+                                        multisplit.test <- NULL
+                                        bootcv <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]}))
+                                    }
+                                   if (responseType %in% c("survival","competing.risks")){
+                                       bootcv <- bootcv[,mean(eval(as.name(m))),by=list(model,times)]
+                                       data.table::setnames(bootcv,c("model","times",m))
+                                   } else{
+                                         bootcv <- bootcv[,mean(eval(as.name(m))),by=list(model)]
+                                         data.table::setnames(bootcv,c("model",m))
+                                     }
+                                   out <- list(bootcv)
+                                   names(out) <- "score"
+                                   ## names(out) <- paste0("Cross-validation (average of ",B," steps)")
+                                   if (!is.null(multisplit.test)){
+                                       if ("pvalues" %in% plots)
+                                           ms <- list(tests=multisplit.test)
+                                       else
+                                           ms <- list(tests=multisplit.test[,data.table(p=median(p)),by=list(model1,model2,times)])
+                                       out <- c(out,ms)
+                                   }
+                                   out
+                               })
+        ## names(crossvalPerf) <- names(crossval[[1]])
+        names(crossvalPerf) <- metrics
         ## Brier <- data.table::rbindlist(lapply(crossval,function(x)x[["Brier"]]))
         ## Brier[,list(looboot=mean(ipcwResiduals)),by=list(model,times,id)]
         ## bootcv=Brier[,list(bootcv=mean(ipcwResiduals)),by=list(model,times,b)]
@@ -615,7 +607,15 @@ plot.Score <- function(x,which,...){
 #' @export 
 #' @param x Object obtained with \code{Score.list}
 #' @param ... passed to print
-plot.score.ROC <- function(x,models,lwd=3,...){
+plot.score.ROC <- function(x,models,timepoint,lwd=3,legend=TRUE,legend.title,...){
+    pframe <- x$ROC$plotframe
+    if (!missing(models))
+        pframe <- pframe[model%in%models]
+    setkey(pframe,model)
+    if (missing(timepoint))
+        timepoint <- max(pframe[["times"]])
+    else ## can only do one timepoint
+        timepoint <- timepoint[[1]]
     plot(0,0,type="n",ylim = 0:1,
          xlim = 0:1,
          axes=FALSE,
@@ -623,12 +623,23 @@ plot.score.ROC <- function(x,models,lwd=3,...){
          ylab = "Sensitivity")
     prodlim::PercentAxis(1,at=seq(0,1,.25))
     prodlim::PercentAxis(2,at=seq(0,1,.25))
-    pframe <- x$ROC$plotframe
     if (!missing(models)) pframe <- pframe[model %in% models]
     pframe[,col:=as.numeric(as.factor(model))]
     pframe[,lwd:=lwd]
     pframe[,lines(FPR,TPR,type="l",lwd=lwd,col=col),by=model]
-    pframe[,legend(x="bottomright",legend=unique(model),lwd=lwd[[1]],col=unique(col))]
+    if (legend!=FALSE){
+        if (!is.character(legend)){
+            if (!missing(models))
+                auc <- x$AUC$score[(times==timepoint) & (model%in%models)]
+            else
+                auc <- x$AUC$score[(times==timepoint)]
+            setkey(auc,model)
+            legend <- paste0(auc$model,": ",Publish::formatCI(100*auc$AUC,100*auc$lower.AUC,100*auc$upper.AUC,showX=TRUE,digits=1))
+        }
+        if (missing(legend.title)) legend.title <- "AUC"
+        pframe[,legend(x="bottomright",legend=legend,lwd=lwd[[1]],title=legend.title,col=unique(col))]
+    }
+    invisible(x)
 }
 
 ##' Plot AUC curve
@@ -652,6 +663,8 @@ plot.score.AUC <- function(x,models,lwd=3,xlim,ylim,...){
     pframe[,col:=as.numeric(as.factor(model))]
     pframe[,lwd:=lwd]
     pframe[,lines(times,AUC,type="l",lwd=lwd,col=col),by=model]
+    pframe[,dimcol:=dimColor(col[[1]],density=55),by=model]
+    pframe[,polygon(x=c(times,rev(times)),y=c(lower.AUC,rev(upper.AUC)),col=dimcol,border=NA),by=model]
 }
 
 
@@ -731,7 +744,7 @@ AUC.binary <- function(DT,breaks=NULL,test,alpha,N,NT,NF,dolist,ROC,...){
     else{
         AUC <- score[,0.5 * sum(diff(c(0,FPR,0,1)) * (c(TPR,0,1) + c(0,TPR,0))),by=list(model)]
         ROC <- score
-        list(score=list(AUC=AUC,ROC=ROC))
+        list(score=AUC,ROC=ROC)
     }
 }
 
@@ -797,34 +810,31 @@ AireTrap <- function(FP,TP,N){
     sum((FP-c(0,FP[-N]))*((c(0,TP[-N])+TP)/2))
 }
 
-AUC.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist,...){
-    model=times=risk=Cases=time=status=Controls1=TPt=FPt=WTi=Wt=ipcwControls1=ipcwCases=IC.AUC=lower.AUC=se.AUC=upper.AUC=NULL
+AUC.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist,ROC,...){
+    model=times=risk=Cases=time=status=Controls1=TPR=FPR=WTi=Wt=ipcwControls1=ipcwCases=IC.AUC=lower.AUC=se.AUC=upper.AUC=NULL
     cause <- 1
     ## assign Weights before ordering
     DT[,ipcwControls1:=1/(Wt*N)]
-    ## DT[,ipcwControls2:=1/(WTi*N)]
     DT[,ipcwCases:=1/(WTi*N)]
-    ## DT[,ipcwControls2:=1/(WTi*N)]
     ## order data
     data.table::setorder(DT,model,times,-risk)
     ## identify cases and controls
     DT[,Cases:=(time <= times &  status==cause)]
     DT[,Controls1:=(time > times)] 
-    ## DT[,Controls2:=(time < times &  status!=cause & status !=0)]
     ## prepare Weights
     DT[Cases==0,ipcwCases:=0]
     DT[Controls1==0,ipcwControls1:=0]
-    ## DT[Controls2==0,ipcwControls2:=0]
     ## compute denominator
-    ## ROC <- DT[,list(TPt=c(0,cumsum(ipcwCases)),FPt=c(0,cumsum(ipcwControls1)+cumsum(ipcwControls2))),by=list(model,times)]
-    DT[,TPt:=cumsum(ipcwCases)/sum(ipcwCases),by=list(model,times)]
-    ## DT[,FPt:=(cumsum(ipcwControls1)+cumsum(ipcwControls2))/(sum(ipcwControls2)+sum(ipcwControls1)),by=list(model,times)]
-    DT[,FPt:=(cumsum(ipcwControls1))/(sum(ipcwControls1)),by=list(model,times)]
+    DT[,TPR:=cumsum(ipcwCases)/sum(ipcwCases),by=list(model,times)]
+    DT[,FPR:=(cumsum(ipcwControls1))/(sum(ipcwControls1)),by=list(model,times)]
     nodups <- DT[,c(!duplicated(risk)[-1],TRUE),by=list(model,times)]$V1
-    ## auc <- DT[nodups,list(AUC=sum((FPt-c(0,FPt[-N]))*((c(0,TPt[-N])+TPt)/2))),by=list(model,times)]
-    score <- DT[nodups,list(AUC=AireTrap(FPt,TPt)),by=list(model,times)]
+    if (ROC==TRUE) {
+        output <- list(ROC=DT[nodups,c("model","times","risk","TPR","FPR"),with=FALSE])
+    }else{
+         output <- NULL
+     }
+    score <- DT[nodups,list(AUC=AireTrap(FPR,TPR)),by=list(model,times)]
     data.table::setkey(score,model,times)
-    ## browser(skipCalls=1)
     if (test==TRUE){
         ## compute influence function
         data.table::setorder(DT,model,times,time,-status)
@@ -837,24 +847,16 @@ AUC.survival <- function(DT,MC,test,alpha,N,NT,NF,dolist,...){
         data.table::setkey(DT,model,times)
         DT <- DT[score]
         test.AUC <- DT[,getComparisons(data.table(x=AUC,IC=IC.AUC,model=model),NF=NF,N=N,alpha=alpha,dolist=dolist),by=list(times)]
-        AUC <- list(score=score,test=test.AUC)
+        output <- c(list(score=score,test=test.AUC),output)
     }else{
-         AUC <- list(score=score)
+         output <- c(list(score=score),output)
      }
-    AUC
+    output
 }
 
 
-AUC.competing.risks <- function(DT,
-                                MC,
-                                test,
-                                alpha,
-                                N,
-                                NT,
-                                NF,
-                                dolist,
-                                cause,...){
-    model=times=risk=Cases=time=status=event=Controls1=Controls2=TPt=FPt=WTi=Wt=ipcwControls1=ipcwControls2=ipcwCases=IC.AUC=lower.AUC=se.AUC=upper.AUC=NULL
+AUC.competing.risks <- function(DT,MC,test,alpha,N,NT,NF,dolist,cause,ROC,...){
+    model=times=risk=Cases=time=status=event=Controls1=Controls2=TPR=FPR=WTi=Wt=ipcwControls1=ipcwControls2=ipcwCases=IC.AUC=lower.AUC=se.AUC=upper.AUC=NULL
     ## assign Weights before ordering
     DT[,ipcwControls1:=1/(Wt*N)]
     DT[,ipcwControls2:=1/(WTi*N)]
@@ -871,12 +873,16 @@ AUC.competing.risks <- function(DT,
     DT[Controls1==0,ipcwControls1:=0]
     DT[Controls2==0,ipcwControls2:=0]
     ## compute denominator
-    ## ROC <- DT[,list(TPt=c(0,cumsum(ipcwCases)),FPt=c(0,cumsum(ipcwControls1)+cumsum(ipcwControls2))),by=list(model,times)]
-    DT[,TPt:=cumsum(ipcwCases)/sum(ipcwCases),by=list(model,times)]
-    DT[,FPt:=(cumsum(ipcwControls1)+cumsum(ipcwControls2))/(sum(ipcwControls2)+sum(ipcwControls1)),by=list(model,times)]
+    ## ROC <- DT[,list(TPR=c(0,cumsum(ipcwCases)),FPR=c(0,cumsum(ipcwControls1)+cumsum(ipcwControls2))),by=list(model,times)]
+    DT[,TPR:=cumsum(ipcwCases)/sum(ipcwCases),by=list(model,times)]
+    DT[,FPR:=(cumsum(ipcwControls1)+cumsum(ipcwControls2))/(sum(ipcwControls2)+sum(ipcwControls1)),by=list(model,times)]
     nodups <- DT[,c(!duplicated(risk)[-1],TRUE),by=list(model,times)]$V1
-    ## auc <- DT[nodups,list(AUC=sum((FPt-c(0,FPt[-N]))*((c(0,TPt[-N])+TPt)/2))),by=list(model,times)]
-    score <- DT[nodups,list(AUC=AireTrap(FPt,TPt)),by=list(model,times)]
+    if (ROC==TRUE) {
+        output <- list(ROC=DT[nodups,c("model","times","risk","TPR","FPR"),with=FALSE])
+    }else{
+         output <- NULL
+     }
+    score <- DT[nodups,list(AUC=AireTrap(FPR,TPR)),by=list(model,times)]
     data.table::setkey(score,model,times)
     if (test==TRUE){
         ## compute influence function
@@ -890,11 +896,11 @@ AUC.competing.risks <- function(DT,
         data.table::setkey(DT,model,times)
         DT <- DT[score]
         test.AUC <- DT[,getComparisons(data.table(x=AUC,IC=IC.AUC,model=model),NF=NF,N=N,alpha=alpha,dolist=dolist),by=list(times)]
-        AUC <- list(score=score,test=test.AUC)
+        output <- c(list(score=score,test=test.AUC),output)
     }else{
-         AUC <- list(score=score)
+         output <- c(list(score=score),output)
      }
-    AUC
+    output
 }
 
 
