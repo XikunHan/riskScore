@@ -140,7 +140,7 @@ Score.list <- function(object,
                        trainseeds,
                        ...){
     
-    id=time=status=id=WTi=b=time=status=model1=model2=p=model=NULL
+    id=time=status=id=WTi=b=time=status=model=reference=p=model=NULL
 
     # -----------------parse arguments and prepare data---------
     # {{{ Response
@@ -228,9 +228,9 @@ Score.list <- function(object,
     ## test <- FALSE
     if (test==TRUE && missing(dolist)){
         if (is.null(nullobject)) {
-            dolist <- NF:2
+            dolist <- 1:(NF-1)
         } else{
-              dolist <- NF:1
+              dolist <- 0:(NF-1)
           }
     }
     # }}}
@@ -450,8 +450,8 @@ Score.list <- function(object,
             out[[s]] <- do.call(paste(s,responseType,sep="."),input)
             out[[s]]$score[,model:=factor(model,levels=mlevs,mlabels)]
             if (NROW(out[[s]]$test)>0){
-                out[[s]]$test[,model1:=factor(model1,levels=mlevs,mlabels)]
-                out[[s]]$test[,model2:=factor(model2,levels=mlevs,mlabels)]
+                out[[s]]$test[,model:=factor(model,levels=mlevs,mlabels)]
+                out[[s]]$test[,reference:=factor(reference,levels=mlevs,mlabels)]
             }
         }
         for (m in metrics){
@@ -462,12 +462,13 @@ Score.list <- function(object,
                 out[["ROC"]]$plotframe[,model:=factor(model,levels=mlevs,mlabels)]
                 out[[m]]$ROC <- NULL
             }else{
+                 input <- c(input, list(ROC=FALSE))
                  out[[m]] <- do.call(paste(m,responseType,sep="."),input)
              }
             out[[m]]$score[,model:=factor(model,levels=mlevs,mlabels)]
             if (NROW(out[[m]]$test)>0){
-                out[[m]]$test[,model1:=factor(model1,levels=mlevs,mlabels)]
-                out[[m]]$test[,model2:=factor(model2,levels=mlevs,mlabels)]
+                out[[m]]$test[,model:=factor(model,levels=mlevs,mlabels)]
+                out[[m]]$test[,reference:=factor(reference,levels=mlevs,mlabels)]
             }
         }
         out
@@ -512,9 +513,9 @@ Score.list <- function(object,
                                        ## if (length(dolist)>0){https://www.google.com/search?client=ubuntu&<channel=fs&q=test&ie=utf-8&oe=utf-8
                                        if (length(crossval[[1]][[m]]$test)>0){
                                            if (responseType %in% c("survival","competing.risks")){
-                                               multisplit.test <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$test[,data.table(times,model1,model2,p)]}))
+                                               multisplit.test <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$test[,data.table(times,model,reference,p)]}))
                                            }else{
-                                                multisplit.test <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$test[,data.table(model1,model2,p)]}))
+                                                multisplit.test <- data.table::rbindlist(lapply(crossval,function(x){x[[m]]$test[,data.table(model,reference,p)]}))
                                             }
                                        }else{ 
                                             multisplit.test <- NULL
@@ -537,7 +538,7 @@ Score.list <- function(object,
                                        if ("pvalues" %in% plots)
                                            ms <- list(tests=multisplit.test)
                                        else
-                                           ms <- list(tests=multisplit.test[,data.table(p=median(p)),by=list(model1,model2,times)])
+                                           ms <- list(tests=multisplit.test[,data.table(p=median(p)),by=list(model,reference,times)])
                                        out <- c(out,ms)
                                    }
                                    out

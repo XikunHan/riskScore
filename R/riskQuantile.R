@@ -3,9 +3,9 @@
 ## author: Thomas Alexander Gerds
 ## created: Jan  9 2016 (19:31) 
 ## Version: 
-## last-updated: Jan 18 2016 (19:22) 
+## last-updated: Jan 27 2016 (16:45) 
 ##           By: Thomas Alexander Gerds
-##     Update #: 81
+##     Update #: 87
 #----------------------------------------------------------------------
 ## 
 ### Commentary: 
@@ -37,9 +37,8 @@ riskQuantile.binary <- function(DT,test,alpha,N,NT,NF,dolist,Q,...){
                                                  changedist.eventfree <- DTdiff[ReSpOnSe==0,quantile(X,probs=Q),by=list(model)]
                                                  changedist.eventfree <- DTdiff[,quantile(X,probs=Q),by=list(model)]
                                                  changedist <- rbindlist(list(changedist.overall,changedist.causes,changedist.eventfree))
-                                                 setnames(changedist,"model","model2")
-                                                 changedist[,model1:=g]
-                                                 data.table::setcolorder(changedist,c("model1",colnames(changedist)[-length(colnames(changedist))]))
+                                                 changedist[,reference:=g]
+                                                 data.table::setcolorder(changedist,c("reference",colnames(changedist)[-length(colnames(changedist))]))
                                                  changedist
                                              }))
     }else test <- NULL
@@ -125,9 +124,9 @@ riskQuantile.survival <- function(DT,test,alpha,N,NT,NF,dolist,Q,...){
     if (length(dolist)>0){
         test <- data.table::rbindlist(lapply(dolist,function(g){
                                                  ## FIXME: when dolist is 0:1 and models are 0:2 this does not work 
-                                                 DTdiff <- DT[model<g]
-                                                 ## from all models, substract risk of model g 
-                                                 DTdiff[,X:=risk-DT[model==g,risk]]
+                                                 DTdiff <- DT[model>g]
+                                                 ## from all models, substract risk from risk of model g 
+                                                 DTdiff[,X:=DT[model==g,risk]-risk]
                                                  setorder(DTdiff, time,-status)
                                                  N <- NROW(DTdiff)
                                                  Xrange <- DTdiff[,range(X)]
@@ -137,9 +136,8 @@ riskQuantile.survival <- function(DT,test,alpha,N,NT,NF,dolist,Q,...){
                                                  changedist.overall <- DTdiff[,data.table(t(c(cause="all",quantile(X,probs=Q)))),by=list(model,times)]
                                                  colnames(changedist.overall) <- colnames(changedist.event)
                                                  changedist <- rbindlist(list(changedist.overall,changedist.event,changedist.eventfree))
-                                                 setnames(changedist,"model","model2")
-                                                 changedist[,model1:=g]
-                                                 data.table::setcolorder(changedist,c("model1",colnames(changedist)[-length(colnames(changedist))]))
+                                                 changedist[,reference:=g]
+                                                 data.table::setcolorder(changedist,c("reference",colnames(changedist)[-length(colnames(changedist))]))
                                                  changedist
                                              }))
     }else test <- NULL
@@ -250,9 +248,8 @@ riskQuantile.competing.risks <- function(DT,test,alpha,N,NT,NF,dolist,cause,Q,..
                                                  changedist.overall <- DTdiff[,data.table(t(c(cause="all",quantile(X,probs=Q)))),by=list(model,times)]
                                                  colnames(changedist.overall) <- colnames(changedist.causes)
                                                  changedist <- rbindlist(list(changedist.overall,changedist.causes,changedist.eventfree))
-                                                 setnames(changedist,"model","model2")
-                                                 changedist[,model1:=g]
-                                                 data.table::setcolorder(changedist,c("model1",colnames(changedist)[-length(colnames(changedist))]))
+                                                 changedist[,reference:=g]
+                                                 data.table::setcolorder(changedist,c("reference",colnames(changedist)[-length(colnames(changedist))]))
                                                  changedist
                                              }))
     }else test <- NULL
